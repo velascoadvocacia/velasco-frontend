@@ -1,0 +1,13 @@
+node_modules
+dist
+.DS_Store
+.env.local
+.env
+.idea
+.codex
+.pnp.*
+.yarn/install-state.gz
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+Cursor.AppImage
