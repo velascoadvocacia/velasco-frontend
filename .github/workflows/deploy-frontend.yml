@@ -21,5 +21,5 @@ jobs:
             git pull origin main
             
             # Rebuild frontend apenas
-            docker compose -f ~/docker-compose.yml up -d --build frontend
-            docker compose -f ~/docker-compose.yml logs frontend
+            docker compose -f ~/velasco-backend/docker-compose.yml up -d --build frontend
+            docker compose -f ~/velasco-backend/docker-compose.yml logs frontend
