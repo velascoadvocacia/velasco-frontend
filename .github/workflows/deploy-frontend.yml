@@ -1,0 +1,25 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            cd ~/velasco-frontend
+            git pull origin main
+            
+            # Rebuild frontend apenas
+            docker compose -f ~/docker-compose.yml up -d --build frontend
+            docker compose -f ~/docker-compose.yml logs frontend
