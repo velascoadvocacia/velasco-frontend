@@ -5,3 +5,9 @@ services:
     ports:
       - "80:80"
     restart: always
+    networks:
+      - velasco-network
+
+networks:
+  velasco-network:
+    external: true
