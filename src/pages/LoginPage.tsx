@@ -8,8 +8,8 @@ export function LoginPage() {
   const { isAuthenticated, isAdmin, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [username, setUsername] = useState("admin");
-  const [senha, setSenha] = useState("Admin@123456");
+  const [username, setUsername] = useState("");
+  const [senha, setSenha] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
