@@ -9,6 +9,7 @@ import { PartiesPage } from "./pages/PartiesPage";
 import { PreviewPage } from "./pages/PreviewPage";
 import { RTComposerPage } from "./pages/RTComposerPage";
 import { RtListPage } from "./pages/RtListPage";
+import { UserRegistrationPage } from "./pages/UserRegistrationPage";
 import { UserDashboardPage } from "./pages/UserDashboardPage";
 
 function HomeRedirect() {
@@ -55,6 +56,14 @@ export default function App() {
         element={
           <ProtectedRoute allowedRoles={["ADMIN"]}>
             <AdminDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/usuarios/cadastrar"
+        element={
+          <ProtectedRoute allowedRoles={["ADMIN"]}>
+            <UserRegistrationPage />
           </ProtectedRoute>
         }
       />

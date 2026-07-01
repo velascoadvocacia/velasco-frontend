@@ -42,6 +42,7 @@ export function AppShell({ title, subtitle, actions, children }: AppShellProps) 
           <NavLink to="/cadastros-partes/reclamante">Cadastrar Reclamante</NavLink>
           <NavLink to="/cadastros-partes/reclamada">Cadastrar Reclamada</NavLink>
           <NavLink to="/partes">Partes e Processos</NavLink>
+          {isAdmin ? <NavLink to="/usuarios/cadastrar">Cadastro de Usuários</NavLink> : null}
           {isAdmin ? <NavLink to="/admin">Dashboard Admin</NavLink> : null}
         </nav>
 

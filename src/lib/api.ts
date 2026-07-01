@@ -7,7 +7,8 @@ import type {
   ProcessoCreatePayload,
   ProcessoUpdatePayload,
   Processo,
-  Usuario
+  Usuario,
+  UsuarioCreatePayload
 } from "../types/api";
 import { API_BASE_URL } from "./constants";
 
@@ -92,6 +93,13 @@ export const api = {
 
   createPessoa: (token: string, payload: PessoaCreatePayload) =>
     request<PessoaResponse>("/pessoas", {
+      method: "POST",
+      token,
+      body: JSON.stringify(payload)
+    }),
+
+  createUsuario: (token: string, payload: UsuarioCreatePayload) =>
+    request<Usuario>("/usuarios", {
       method: "POST",
       token,
       body: JSON.stringify(payload)

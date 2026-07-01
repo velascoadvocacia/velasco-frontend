@@ -243,6 +243,31 @@ textarea {
   background: #fff;
 }
 
+.party-form .invalid-field {
+  border-color: #b91c1c;
+  background: #fff7f7;
+}
+
+.field-error {
+  color: #b91c1c;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.checkbox-field {
+  align-content: end;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.6rem;
+  min-height: 4.5rem;
+}
+
+.party-form .checkbox-field input {
+  width: auto;
+}
+
 /* ─── RT Composer grid ───────────────────────────────── */
 
 .rt-grid {

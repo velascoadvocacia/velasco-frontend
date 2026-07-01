@@ -62,6 +62,14 @@ export interface Usuario {
   updatedAt: string;
 }
 
+export interface UsuarioCreatePayload {
+  username: string;
+  senha: string;
+  pessoaId: number;
+  perfil: PerfilUsuario;
+  ativo?: boolean;
+}
+
 export interface AuthLoginResponse {
   token: string;
   tokenType: string;
