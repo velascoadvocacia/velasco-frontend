@@ -35,5 +35,5 @@ jobs:
             df -h
 
             # Rebuild frontend apenas
-            docker compose -f ~/docker-compose.yml up -d --build frontend
-            docker compose -f ~/docker-compose.yml logs frontend
+            docker compose up -d --build
+            docker compose logs frontend
