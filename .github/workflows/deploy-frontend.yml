@@ -20,6 +20,20 @@ jobs:
             cd ~/velasco-frontend
             git pull origin main
             
+            echo "Espaço antes da limpeza:"
+            df -h
+
+            AVAILABLE=$(df --output=avail / | tail -1)
+
+            # Menos de 1 GB livre
+            if [ "$AVAILABLE" -lt 1048576 ]; then
+              echo "Pouco espaço em disco. Limpando apenas o cache de build do Docker..."
+              docker builder prune -af || true
+            fi
+
+            echo "Espaço após limpeza:"
+            df -h
+
             # Rebuild frontend apenas
             docker compose -f ~/docker-compose.yml up -d --build frontend
             docker compose -f ~/docker-compose.yml logs frontend
