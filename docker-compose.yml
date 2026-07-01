@@ -1,7 +1,6 @@
 services:
   frontend:
-    build:
-      context: .
+    image: 029180756761.dkr.ecr.sa-east-1.amazonaws.com/velasco-frontend:latest
     ports:
       - "80:80"
     restart: always

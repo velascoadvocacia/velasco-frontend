@@ -9,7 +9,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push frontend image
+        env:
+          ECR_REGISTRY: 029180756761.dkr.ecr.sa-east-1.amazonaws.com
+          IMAGE_TAG: latest
+        run: |
+          docker build -t "$ECR_REGISTRY/velasco-frontend:$IMAGE_TAG" .
+          docker push "$ECR_REGISTRY/velasco-frontend:$IMAGE_TAG"
+
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -19,21 +38,7 @@ jobs:
           script: |
             cd ~/velasco-frontend
             git pull origin main
-            
-            echo "Espaço antes da limpeza:"
-            df -h
-
-            AVAILABLE=$(df --output=avail / | tail -1)
-
-            # Menos de 1 GB livre
-            if [ "$AVAILABLE" -lt 1048576 ]; then
-              echo "Pouco espaço em disco. Limpando apenas o cache de build do Docker..."
-              docker builder prune -af || true
-            fi
-
-            echo "Espaço após limpeza:"
-            df -h
-
-            # Rebuild frontend apenas
-            docker compose up -d --build
+            aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin 029180756761.dkr.ecr.sa-east-1.amazonaws.com
+            docker compose pull
+            docker compose up -d
             docker compose logs frontend
