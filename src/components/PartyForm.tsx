@@ -167,16 +167,14 @@ export function PartyForm({
         <div className="form-grid">
           <label>
             Nome
-            <input value={values.nome} onChange={(event) => handleChange("nome", event.target.value)} required />
+            <input value={values.nome} onChange={(event) => handleChange("nome", event.target.value)} />
           </label>
 
           <label>
             E-mail
             <input
-              type="email"
               value={values.email}
               onChange={(event) => handleChange("email", event.target.value)}
-              required
             />
           </label>
 
@@ -190,7 +188,6 @@ export function PartyForm({
             <input
               value={values.documento}
               onChange={(event) => handleChange("documento", event.target.value)}
-              required
             />
           </label>
 

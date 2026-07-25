@@ -53,7 +53,7 @@ export function LoginPage() {
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
             Usuário
-            <input value={username} onChange={(event) => setUsername(event.target.value)} required />
+            <input value={username} onChange={(event) => setUsername(event.target.value)} />
           </label>
 
           <label>
@@ -63,7 +63,6 @@ export function LoginPage() {
                 type={showPassword ? "text" : "password"}
                 value={senha}
                 onChange={(event) => setSenha(event.target.value)}
-                required
               />
               <button
                 type="button"

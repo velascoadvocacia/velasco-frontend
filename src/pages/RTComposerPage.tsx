@@ -349,7 +349,6 @@ export function RTComposerPage() {
   });
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
-  const [showValidation, setShowValidation] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -613,12 +612,6 @@ export function RTComposerPage() {
                   className="ghost-button ghost-button-light"
                   type="button"
                   onClick={() => {
-                    if (!values.claimantId || !values.advogadoId || previewBlocks.length === 0) {
-                      setShowValidation(true);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                      return;
-                    }
-                    setShowValidation(false);
                     void handleSave();
                   }}
                   disabled={isSaving}
@@ -679,9 +672,6 @@ export function RTComposerPage() {
                               </option>
                           ))}
                         </select>
-                        {showValidation && !values.advogadoId ? (
-                          <span className="field-error">Selecione um advogado responsável</span>
-                        ) : null}
                       </label>
                     </div>
 
@@ -701,9 +691,6 @@ export function RTComposerPage() {
                         ))}
                       </div>
                     </div>
-                    {showValidation && !values.claimantId ? (
-                      <span className="field-error">Selecione um reclamante</span>
-                    ) : null}
 
                     {selectedClaimant ? (
                         <div className="selected-summary-card">
@@ -853,9 +840,6 @@ export function RTComposerPage() {
                     title="Blocos do documento"
                     description="Selecione os blocos que compõem esta RT, organizados por seção."
                 >
-                  {showValidation && previewBlocks.length === 0 ? (
-                    <span className="field-error">Selecione ao menos um bloco</span>
-                  ) : null}
                   <div className="text-block-grid wide">
                     {Object.entries(blocksBySection).map(([section, blocks]) => (
                         <div className="block-section-group" key={section}>
