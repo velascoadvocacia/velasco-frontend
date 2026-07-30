@@ -16,6 +16,7 @@ export function DefendantRegistrationPage() {
         token={session.token}
         roleLabel="Reclamada"
         tipoPessoa="JURIDICA"
+        hideNomeForJuridica
         title="Dados da reclamada"
         description="Cadastro completo da parte reclamada, incluindo dados empresariais, documentos e endereço."
         successMessage="Reclamada cadastrada com sucesso."

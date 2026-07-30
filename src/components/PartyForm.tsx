@@ -41,6 +41,7 @@ interface PartyFormProps {
   token: string;
   roleLabel: string;
   tipoPessoa: TipoPessoa;
+  hideNomeForJuridica?: boolean;
   title: string;
   description: string;
   successMessage: string;
@@ -83,7 +84,7 @@ function optional(value: string) {
 
 function payloadFromState(values: PartyFormState, tipoPessoa: TipoPessoa): PessoaCreatePayload {
   return {
-    nome: values.nome.trim(),
+    nome: values.nome.trim() || values.razaoSocial.trim() || values.nomeFantasia.trim(),
     email: values.email.trim(),
     telefone: optional(values.telefone),
     nacionalidade: optional(values.nacionalidade),
@@ -126,11 +127,13 @@ function payloadFromState(values: PartyFormState, tipoPessoa: TipoPessoa): Pesso
 export function PartyForm({
   token,
   roleLabel,
-  tipoPessoa,
+  tipoPessoa: initialTipoPessoa,
+  hideNomeForJuridica = false,
   title,
   description,
   successMessage
 }: PartyFormProps) {
+  const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>(initialTipoPessoa);
   const [values, setValues] = useState<PartyFormState>(initialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -138,6 +141,25 @@ export function PartyForm({
 
   function handleChange(field: keyof PartyFormState, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
+  }
+
+  function handleTipoPessoaChange(nextTipoPessoa: TipoPessoa) {
+    setTipoPessoa(nextTipoPessoa);
+    setValues((current) => ({
+      ...current,
+      documento: "",
+      estadoCivil: "",
+      rg: "",
+      orgaoEmissorRg: "",
+      pis: "",
+      nomeMae: "",
+      profissao: "",
+      dataNascimento: "",
+      razaoSocial: "",
+      nomeFantasia: "",
+      inscricaoEstadual: "",
+      ...(nextTipoPessoa === "JURIDICA" && hideNomeForJuridica ? { nome: "" } : {})
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -165,10 +187,12 @@ export function PartyForm({
     <form className="party-form" onSubmit={handleSubmit}>
       <SectionCard title={title} description={description}>
         <div className="form-grid">
-          <label>
-            Nome
-            <input value={values.nome} onChange={(event) => handleChange("nome", event.target.value)} />
-          </label>
+          {!(tipoPessoa === "JURIDICA" && hideNomeForJuridica) ? (
+            <label>
+              Nome
+              <input value={values.nome} onChange={(event) => handleChange("nome", event.target.value)} />
+            </label>
+          ) : null}
 
           <label>
             E-mail
@@ -193,7 +217,10 @@ export function PartyForm({
 
           <label>
             Tipo de cadastro
-            <input value={tipoPessoa === "FISICA" ? "Pessoa física" : "Pessoa jurídica"} disabled />
+            <select value={tipoPessoa} onChange={(event) => handleTipoPessoaChange(event.target.value as TipoPessoa)}>
+              <option value="FISICA">Pessoa física</option>
+              <option value="JURIDICA">Pessoa jurídica</option>
+            </select>
           </label>
 
           <label>
