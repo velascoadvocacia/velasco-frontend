@@ -301,7 +301,7 @@ function buildPreviewBlocks(
   };
   const tipoRescisao = tipoRescisaoTexto[values.tipoRescisao] || "[modalidade de rescisão]";
 
-  const contentMap: Record<BlockId, string> = {
+  const contentMap: Partial<Record<BlockId, string>> = {
     qualificacao_reclamada: defendants.length
         ? defendants.map((item) => `${personLabel(item)}, pessoa jurídica de direito privado, CNPJ nº ${item.cnpj || "não informado"}, com endereço à ${formatAddress(item)}.`).join(" ")
         : "____, pessoa jurídica de direito privado, CNPJ nº ___, com endereço completo, pelas razões de fato e de direito a seguir expostas.",
@@ -336,7 +336,7 @@ function buildPreviewBlocks(
     return {
       id,
       title: definition.title,
-      content: id === "qualificacao_reclamante" ? qualificationText : contentMap[id]
+      content: id === "qualificacao_reclamante" ? qualificationText : contentMap[id] || ""
     };
   });
 }
