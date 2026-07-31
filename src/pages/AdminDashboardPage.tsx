@@ -133,7 +133,7 @@ export function AdminDashboardPage() {
                     </div>
                     <div>
                       <StatusBadge value={processo.status} />
-                      <span>{processo.advogado.nome}</span>
+                      <span>{processo.advogado?.nome || "Advogado não informado"}</span>
                     </div>
                   </Link>
                 ))}
