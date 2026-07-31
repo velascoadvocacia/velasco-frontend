@@ -17,6 +17,7 @@ interface FormState {
   senha: string;
   confirmarSenha: string;
   perfil: PerfilUsuario | "";
+  tratamento: "DR." | "DRA." | "";
   oab: string;
   usuarioAtivo: boolean;
 }
@@ -35,6 +36,7 @@ const initialState: FormState = {
   senha: "",
   confirmarSenha: "",
   perfil: "",
+  tratamento: "",
   oab: "",
   usuarioAtivo: true
 };
@@ -112,6 +114,7 @@ export function UserRegistrationPage() {
         senha: values.senha,
         pessoaId: pessoa.id,
         perfil: values.perfil as PerfilUsuario,
+        tratamento: values.perfil === "ADVOGADO" ? values.tratamento || null : null,
         oab: values.perfil === "ADVOGADO" ? optional(values.oab) : null,
         ativo: values.usuarioAtivo
       });
@@ -217,10 +220,24 @@ export function UserRegistrationPage() {
             </label>
 
             {values.perfil === "ADVOGADO" ? (
-              <label>
-                OAB (opcional)
-                <input value={values.oab} onChange={(event) => handleChange("oab", event.target.value)} />
-              </label>
+              <>
+                <label>
+                  Tratamento
+                  <select
+                    value={values.tratamento}
+                    onChange={(event) => handleChange("tratamento", event.target.value as FormState["tratamento"])}
+                  >
+                    <option value="">Selecione</option>
+                    <option value="DR.">DR.</option>
+                    <option value="DRA.">DRA.</option>
+                  </select>
+                </label>
+
+                <label>
+                  OAB (opcional)
+                  <input value={values.oab} onChange={(event) => handleChange("oab", event.target.value)} />
+                </label>
+              </>
             ) : null}
 
             <label>
