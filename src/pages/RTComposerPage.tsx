@@ -20,6 +20,7 @@ type BlockId =
     | "qualificacao_reclamante"
     | "dados_reclamante"
     | "qualificacao_reclamada"
+    | "contrato_aspectos_gerais"
     | "contrato_dispensa_sem_justa"
     | "contrato_dispensa_com_justa"
     | "contrato_pedido_demissao"
@@ -48,8 +49,17 @@ type BlockId =
 const BLOCKS_FROM_API: BlockId[] = [
   "qualificacao_reclamante",
   "dados_reclamante",
-  "qualificacao_reclamada"
+  "qualificacao_reclamada",
+  "contrato_aspectos_gerais"
 ];
+
+const contractExtinctionOptions = [
+  { value: "1", title: "Opção 1.1 – Dispensa sem justa causa" },
+  { value: "2", title: "Opção 1.2 – Dispensa com justa causa" },
+  { value: "3", title: "Opção 1.3 – Pedido de demissão" },
+  { value: "4", title: "Opção 1.4 – Rescisão indireta" },
+  { value: "5", title: "Opção 1.5 – Reversão do pedido de demissão - Nulidade" }
+] as const;
 
 interface ComposerState {
   advogadoIds: string[];
@@ -72,6 +82,13 @@ interface ComposerState {
   salarioFuncaoAcumulada: string;
   valorPagoPorFora: string;
   mediaHorasExtras: string;
+  dataContratacao: string;
+  funcaoContrato: string;
+  remuneracao: string;
+  motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
+  dataExtincao: string;
+  dataProjecaoAviso: string;
+  informacoesComplementares: string;
 }
 
 interface BlockDefinition {
@@ -106,18 +123,26 @@ const initialState: ComposerState = {
   salarioFuncaoOriginal: "",
   salarioFuncaoAcumulada: "",
   valorPagoPorFora: "",
-  mediaHorasExtras: ""
+  mediaHorasExtras: "",
+  dataContratacao: "",
+  funcaoContrato: "",
+  remuneracao: "",
+  motivoExtincao: "",
+  dataExtincao: "",
+  dataProjecaoAviso: "",
+  informacoesComplementares: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamante", title: "Qualificação do reclamante", section: "Dados iniciais" },
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
-  { id: "contrato_dispensa_sem_justa", title: "Dispensa sem justa causa", section: "Contrato de trabalho" },
-  { id: "contrato_dispensa_com_justa", title: "Dispensa com justa causa", section: "Contrato de trabalho" },
-  { id: "contrato_pedido_demissao", title: "Pedido de demissão", section: "Contrato de trabalho" },
-  { id: "contrato_rescisao_indireta", title: "Rescisão indireta", section: "Contrato de trabalho" },
-  { id: "reversao_justa_causa", title: "Reversão da justa causa", section: "Contrato de trabalho" },
+  { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
+  { id: "contrato_dispensa_sem_justa", title: "Dispensa sem justa causa", section: "Modalidades contratuais" },
+  { id: "contrato_dispensa_com_justa", title: "Dispensa com justa causa", section: "Modalidades contratuais" },
+  { id: "contrato_pedido_demissao", title: "Pedido de demissão", section: "Modalidades contratuais" },
+  { id: "contrato_rescisao_indireta", title: "Rescisão indireta", section: "Modalidades contratuais" },
+  { id: "reversao_justa_causa", title: "Reversão da justa causa", section: "Modalidades contratuais" },
   { id: "baixa_ctps", title: "Baixa / anotação na CTPS", section: "CTPS e vínculo" },
   { id: "vinculo_sem_registro", title: "Vínculo sem registro", section: "CTPS e vínculo" },
   { id: "danos_nao_anotacao_ctps", title: "Dano moral por não anotação da CTPS", section: "CTPS e vínculo" },
@@ -154,6 +179,15 @@ function orderSelectedBlocks(selectedBlocks: BlockId[]) {
 }
 
 const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> = {
+  contrato_aspectos_gerais: [
+    "dataContratacao",
+    "funcaoContrato",
+    "remuneracao",
+    "motivoExtincao",
+    "dataExtincao",
+    "dataProjecaoAviso",
+    "informacoesComplementares"
+  ],
   contrato_dispensa_sem_justa: ["dataAdmissao", "dataDemissao", "salario"],
   contrato_dispensa_com_justa: ["dataDemissao"],
   contrato_pedido_demissao: ["dataAdmissao", "dataDemissao"],
@@ -167,6 +201,11 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   acidente_trabalho: ["descricaoAcidente"],
   documentos: ["mediaHorasExtras"]
 };
+
+function blockTitle(block: BlockDefinition, values: ComposerState) {
+  if (block.id !== "contrato_aspectos_gerais") return block.title;
+  return contractExtinctionOptions.find((option) => option.value === values.motivoExtincao)?.title || block.title;
+}
 
 function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) {
   const keys = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
@@ -282,7 +321,8 @@ function buildPreviewBlocks(
     lawyers: Usuario[],
     values: ComposerState,
     selectedBlocks: BlockId[],
-    apiPreviewTexts: Partial<Record<BlockId, string>>
+    apiPreviewTexts: Partial<Record<BlockId, string>>,
+    apiPreviewTitles: Partial<Record<BlockId, string>>
 ): PreviewBlock[] {
   const claimantName = claimants.length
       ? claimants.map((item) => item.nome).join(", ")
@@ -345,7 +385,9 @@ function buildPreviewBlocks(
     const definition = blockDefinitions.find((item) => item.id === id)!;
     return {
       id,
-      title: definition.title,
+      title: id === "contrato_aspectos_gerais"
+        ? apiPreviewTitles[id] || blockTitle(definition, values)
+        : definition.title,
       content: BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || ""
     };
   });
@@ -369,6 +411,7 @@ export function RTComposerPage() {
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
     text: string;
+    title: string;
     loading: boolean;
     error: string;
   }>>>({});
@@ -486,10 +529,11 @@ export function RTComposerPage() {
     }
 
     if (!selectedClaimants.length && !selectedDefendants.length && !selectedLawyers.length) {
-      setApiPreviews(Object.fromEntries(selectedApiBlocks.map((id) => [id, {
-        text: "Selecione as partes e advogados para gerar a qualificação.",
-        loading: false,
-        error: ""
+        setApiPreviews(Object.fromEntries(selectedApiBlocks.map((id) => [id, {
+          text: "Selecione as partes e advogados para gerar a qualificação.",
+          title: "",
+          loading: false,
+          error: ""
       }])));
       return;
     }
@@ -499,6 +543,7 @@ export function RTComposerPage() {
       ...current,
       ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
         text: current[id]?.text || "",
+        title: current[id]?.title || "",
         loading: true,
         error: ""
       }]))
@@ -521,6 +566,7 @@ export function RTComposerPage() {
               const block = response.blocos.find((item) => item.id === id);
               return [id, {
                 text: block?.texto || "Texto de qualificação não retornado pelo backend.",
+                title: block?.titulo || "",
                 loading: false,
                 error: ""
               }];
@@ -533,6 +579,7 @@ export function RTComposerPage() {
             ...current,
             ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
               text: "",
+              title: "",
               loading: false,
               error
             }]))
@@ -551,9 +598,14 @@ export function RTComposerPage() {
     return texts;
   }, {});
 
+  const apiPreviewTitles = selectedApiBlocks.reduce<Partial<Record<BlockId, string>>>((titles, id) => {
+    titles[id] = apiPreviews[id]?.title || "";
+    return titles;
+  }, {});
+
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
@@ -942,12 +994,23 @@ export function RTComposerPage() {
                                       onChange={() => toggleBlock(block.id)}
                                   />
                                   <div>
-                                    <strong>{block.title}</strong>
+                                    <strong>{blockTitle(block, values)}</strong>
                                   </div>
                                 </label>
+                                {block.id === "contrato_aspectos_gerais" ? (
+                                    <label className="block-contract-option">
+                                      Motivo da extinção do vínculo
+                                      <select value={values.motivoExtincao} onChange={(event) => handleChange("motivoExtincao", event.target.value)}>
+                                        <option value="">Selecione</option>
+                                        {contractExtinctionOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.title}</option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   <div className="form-grid block-variable-fields">
-                                    {(variableFieldsByBlock[block.id] ?? []).map((field) => {
+                                    {(variableFieldsByBlock[block.id] ?? []).filter((field) => field !== "motivoExtincao").map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
                                         dataDemissao: "Data de demissão",
@@ -960,16 +1023,30 @@ export function RTComposerPage() {
                                         salarioFuncaoOriginal: "Salário da função original",
                                         salarioFuncaoAcumulada: "Salário/acréscimo da função acumulada",
                                         valorPagoPorFora: "Valor pago por fora",
-                                        mediaHorasExtras: "Média de horas extras"
+                                        mediaHorasExtras: "Média de horas extras",
+                                        dataContratacao: "Data de contratação",
+                                        funcaoContrato: "Função exercida",
+                                        remuneracao: "Última remuneração",
+                                        motivoExtincao: "Motivo da extinção do vínculo",
+                                        dataExtincao: "Data de extinção do vínculo",
+                                        dataProjecaoAviso: "Data de projeção do aviso prévio",
+                                        informacoesComplementares: "Informações complementares"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares"].includes(field);
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataProjecaoAviso"].includes(field);
                                       return (
                                           <label key={field}>
                                             {labels[field]}
                                             {multiline ? (
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
                                             ) : (
-                                                <input type={field === "dataAdmissao" || field === "dataDemissao" ? "date" : "text"} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
+                                                <input
+                                                    type={isDate ? "date" : field === "remuneracao" ? "number" : "text"}
+                                                    step={field === "remuneracao" ? "0.01" : undefined}
+                                                    min={field === "remuneracao" ? "0" : undefined}
+                                                    value={String(values[field] ?? "")}
+                                                    onChange={(event) => handleChange(field, event.target.value)}
+                                                />
                                             )}
                                           </label>
                                       );
