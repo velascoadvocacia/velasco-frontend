@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { SectionCard } from "../components/SectionCard";
+import { MultiSelectDropdown } from "../components/MultiSelectDropdown";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../lib/api";
 import { API_BASE_URL } from "../lib/constants";
@@ -456,9 +457,16 @@ export function RTComposerPage() {
   );
 
   const lawyerOptions = useMemo(
-      () => users.filter((item) => item.perfil === "ADVOGADO" || item.perfil === "ADMIN"),
+      () => users.filter((item) => item.perfil === "ADVOGADO"),
       [users]
   );
+
+  const lawyerSelectOptions = useMemo(
+      () => lawyerOptions.map((item) => ({ id: String(item.id), label: item.pessoa?.nome || item.username })),
+      [lawyerOptions]
+  );
+
+  const selectedLawyerOptions = lawyerSelectOptions.filter((option) => values.advogadoIds.includes(option.id));
 
   const selectedClaimants = people.filter((item) => values.claimantIds.includes(String(item.id)));
   const selectedDefendants = people.filter((item) => values.defendantIds.includes(String(item.id)));
@@ -488,12 +496,17 @@ export function RTComposerPage() {
     }));
   }
 
-  function toggleLawyer(userId: number) {
+  function addLawyer(userId: string) {
     setValues((current) => ({
       ...current,
-      advogadoIds: current.advogadoIds.includes(String(userId))
-          ? current.advogadoIds.filter((item) => item !== String(userId))
-          : [...current.advogadoIds, String(userId)]
+      advogadoIds: current.advogadoIds.includes(userId) ? current.advogadoIds : [...current.advogadoIds, userId]
+    }));
+  }
+
+  function removeLawyer(userId: string) {
+    setValues((current) => ({
+      ...current,
+      advogadoIds: current.advogadoIds.filter((item) => item !== userId)
     }));
   }
 
@@ -722,18 +735,13 @@ export function RTComposerPage() {
 
                       <div className="multi-picker-field">
                         <span>Advogados responsáveis</span>
-                        <div className="multi-picker-options">
-                          {lawyerOptions.map((item) => (
-                              <label className="checkbox-card" key={item.id}>
-                                <input
-                                    type="checkbox"
-                                    checked={values.advogadoIds.includes(String(item.id))}
-                                    onChange={() => toggleLawyer(item.id)}
-                                />
-                                <strong>{item.pessoa?.nome || item.username}</strong>
-                              </label>
-                          ))}
-                        </div>
+                        <MultiSelectDropdown
+                            options={lawyerSelectOptions}
+                            selected={selectedLawyerOptions}
+                            placeholder="Buscar advogado por nome"
+                            onSelect={(option) => addLawyer(option.id)}
+                            onRemove={removeLawyer}
+                        />
                       </div>
                     </div>
 
