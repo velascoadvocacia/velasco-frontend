@@ -268,7 +268,8 @@ function buildPreviewBlocks(
     defendants: PessoaResponse[],
     lawyers: Usuario[],
     values: ComposerState,
-    selectedBlocks: BlockId[]
+    selectedBlocks: BlockId[],
+    qualificationText: string
 ): PreviewBlock[] {
   const claimantName = claimants.length
       ? claimants.map((item) => item.nome).join(", ")
@@ -276,12 +277,6 @@ function buildPreviewBlocks(
   const defendantNames = defendants.length
       ? defendants.map((item) => personLabel(item)).join(", ")
       : "[reclamada]";
-  const lawyerName = lawyers.length
-      ? lawyers.map((item) => item.pessoa?.nome || item.username).join(", ")
-      : "[advogado]";
-  const claimantAddress = claimants.length
-      ? claimants.map((item) => formatAddress(item)).join("; ")
-      : "endereço não informado";
   const functionName = optional(values.funcao) || claimants[0]?.profissao || "[função]";
   const admission = values.dataAdmissao ? formatDate(values.dataAdmissao) : "[data de admissão]";
   const dismissal = values.dataDemissao ? formatDate(values.dataDemissao) : "[data de demissão]";
@@ -307,7 +302,6 @@ function buildPreviewBlocks(
   const tipoRescisao = tipoRescisaoTexto[values.tipoRescisao] || "[modalidade de rescisão]";
 
   const contentMap: Record<BlockId, string> = {
-    qualificacao_reclamante: `${claimantName}, brasileiro(a), ${claimants[0]?.estadoCivil?.toLowerCase() || "estado civil não informado"}, ${functionName}, residente e domiciliado(a) em ${claimantAddress}, CPF nº ${claimants.map((item) => item.cpf || "não informado").join(", ")}, RG nº ${claimants.map((item) => item.rg || "não informado").join(", ")}, PIS ${claimants.map((item) => item.pis || "não informado").join(", ")}, por seus procuradores ${lawyerName}, ajuízam a presente reclamatória trabalhista.`,
     qualificacao_reclamada: defendants.length
         ? defendants.map((item) => `${personLabel(item)}, pessoa jurídica de direito privado, CNPJ nº ${item.cnpj || "não informado"}, com endereço à ${formatAddress(item)}.`).join(" ")
         : "____, pessoa jurídica de direito privado, CNPJ nº ___, com endereço completo, pelas razões de fato e de direito a seguir expostas.",
@@ -339,7 +333,11 @@ function buildPreviewBlocks(
 
   return selectedBlocks.map((id) => {
     const definition = blockDefinitions.find((item) => item.id === id)!;
-    return { id, title: definition.title, content: contentMap[id] };
+    return {
+      id,
+      title: definition.title,
+      content: id === "qualificacao_reclamante" ? qualificationText : contentMap[id]
+    };
   });
 }
 
@@ -383,6 +381,11 @@ export function RTComposerPage() {
   });
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
+  const [qualificationPreview, setQualificationPreview] = useState({
+    text: "Selecione as partes e advogados para gerar a qualificação.",
+    loading: false,
+    error: ""
+  });
 
   useEffect(() => {
     async function loadData() {
@@ -472,9 +475,72 @@ export function RTComposerPage() {
   const selectedDefendants = people.filter((item) => values.defendantIds.includes(String(item.id)));
   const selectedLawyers = lawyerOptions.filter((item) => values.advogadoIds.includes(String(item.id)));
 
+  const qualificationSelected = selectedBlocks.includes("qualificacao_reclamante");
+  const qualificationDependencies = [
+    qualificationSelected,
+    ...values.claimantIds,
+    ...values.defendantIds,
+    ...values.advogadoIds,
+    ...Object.entries(values).filter(([key]) => key !== "claimantSearch" && key !== "defendantSearch")
+  ];
+
+  useEffect(() => {
+    if (!qualificationSelected) {
+      setQualificationPreview({ text: "", loading: false, error: "" });
+      return;
+    }
+
+    if (!selectedClaimants.length && !selectedDefendants.length && !selectedLawyers.length) {
+      setQualificationPreview({
+        text: "Selecione as partes e advogados para gerar a qualificação.",
+        loading: false,
+        error: ""
+      });
+      return;
+    }
+
+    if (!session) return;
+    setQualificationPreview((current) => ({ ...current, loading: true, error: "" }));
+    const timer = window.setTimeout(() => {
+      const payload = {
+        ...(isEditing && processoId ? { processoId: Number(processoId) } : {}),
+        reclamantesIds: values.claimantIds.map(Number),
+        reclamadasIds: values.defendantIds.map(Number),
+        advogadosIds: values.advogadoIds.map(Number),
+        blocosSelecionados: ["qualificacao_reclamante"],
+        dadosVariaveis: buildVariablePayload(values, ["qualificacao_reclamante"])
+      };
+
+      void api.previewRT(session.token, payload)
+        .then((response) => {
+          const block = response.blocos.find((item) => item.id === "qualificacao_reclamante");
+          setQualificationPreview({
+            text: block?.texto || "Texto de qualificação não retornado pelo backend.",
+            loading: false,
+            error: ""
+          });
+        })
+        .catch((previewError) => {
+          setQualificationPreview({
+            text: "",
+            loading: false,
+            error: previewError instanceof Error ? previewError.message : "Falha ao gerar a qualificação."
+          });
+        });
+    }, 500);
+
+    return () => window.clearTimeout(timer);
+    // The serialized dependency list tracks selected IDs and variable values without reacting to search text.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, processoId, isEditing, qualificationDependencies.join("|")]);
+
+  const qualificationText = qualificationPreview.loading
+    ? "Gerando texto..."
+    : qualificationPreview.error || qualificationPreview.text;
+
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, qualificationText),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, qualificationText]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {

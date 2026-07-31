@@ -9,7 +9,9 @@ import type {
   Processo,
   Usuario,
   UsuarioCreatePayload,
-  UsuarioUpdatePayload
+  UsuarioUpdatePayload,
+  RtPreviewRequest,
+  RtPreviewResponse
 } from "../types/api";
 import { API_BASE_URL } from "./constants";
 
@@ -145,6 +147,13 @@ export const api = {
   updateProcesso: (token: string, processoId: number, payload: ProcessoUpdatePayload) =>
     request<Processo>(`/processos/${processoId}`, {
       method: "PUT",
+      token,
+      body: JSON.stringify(payload)
+    }),
+
+  previewRT: (token: string, payload: RtPreviewRequest) =>
+    request<RtPreviewResponse>("/rt/preview", {
+      method: "POST",
       token,
       body: JSON.stringify(payload)
     }),

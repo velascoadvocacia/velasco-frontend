@@ -78,6 +78,26 @@ export interface UsuarioUpdatePayload extends Omit<UsuarioCreatePayload, "senha"
   senha?: string;
 }
 
+export interface RtPreviewRequest {
+  processoId?: number | null;
+  reclamantesIds: number[];
+  reclamadasIds: number[];
+  advogadosIds: number[];
+  blocosSelecionados: string[];
+  dadosVariaveis: Record<string, string | null>;
+}
+
+export interface RtPreviewBlock {
+  id: string;
+  titulo: string;
+  texto: string;
+}
+
+export interface RtPreviewResponse {
+  processoId?: number | null;
+  blocos: RtPreviewBlock[];
+}
+
 export interface AuthLoginResponse {
   token: string;
   tokenType: string;
