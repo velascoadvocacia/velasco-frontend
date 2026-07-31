@@ -18,6 +18,7 @@ import type {
 
 type BlockId =
     | "qualificacao_reclamante"
+    | "dados_reclamante"
     | "qualificacao_reclamada"
     | "contrato_dispensa_sem_justa"
     | "contrato_dispensa_com_justa"
@@ -46,6 +47,7 @@ type BlockId =
 
 const BLOCKS_FROM_API: BlockId[] = [
   "qualificacao_reclamante",
+  "dados_reclamante",
   "qualificacao_reclamada"
 ];
 
@@ -111,6 +113,7 @@ const RT_DRAFT_STORAGE_KEY = "velasco.rt-composer-draft";
 
 const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamante", title: "Qualificação do reclamante", section: "Dados iniciais" },
+  { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "contrato_dispensa_sem_justa", title: "Dispensa sem justa causa", section: "Contrato de trabalho" },
   { id: "contrato_dispensa_com_justa", title: "Dispensa com justa causa", section: "Contrato de trabalho" },
@@ -140,6 +143,7 @@ const blockDefinitions: BlockDefinition[] = [
 
 const defaultBlocks: BlockId[] = [
   "qualificacao_reclamante",
+  "dados_reclamante",
   "qualificacao_reclamada",
   "contrato_dispensa_sem_justa",
   "documentos"
