@@ -57,7 +57,7 @@ export interface Usuario {
   username: string;
   pessoa: PessoaResumo;
   perfil: PerfilUsuario;
-  tratamento?: "DR." | "DRA." | null;
+  tratamento?: "DR" | "DRA" | null;
   oab?: string | null;
   ativo: boolean;
   createdAt: string;
@@ -69,7 +69,7 @@ export interface UsuarioCreatePayload {
   senha: string;
   pessoaId: number;
   perfil: PerfilUsuario;
-  tratamento?: "DR." | "DRA." | null;
+  tratamento?: "DR" | "DRA" | null;
   oab?: string | null;
   ativo?: boolean;
 }

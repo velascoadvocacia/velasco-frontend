@@ -12,7 +12,7 @@ type EditState = {
   pessoaId: string;
   perfil: PerfilUsuario;
   oab: string;
-  tratamento: "DR." | "DRA." | "";
+  tratamento: "DR" | "DRA" | "";
   ativo: boolean;
 };
 
@@ -38,7 +38,7 @@ export function UserManagementPage() {
 
   function startEdit(item: Usuario) {
     setEditing(item);
-    setForm({ username: item.username, senha: "", pessoaId: String(item.pessoa?.id || ""), perfil: item.perfil, oab: item.oab || "", tratamento: item.tratamento || "", ativo: item.ativo });
+    setForm({ username: item.username, senha: "", pessoaId: String(item.pessoa?.id || ""), perfil: item.perfil, oab: item.oab || "", tratamento: item.tratamento?.replace(".", "") as EditState["tratamento"] || "", ativo: item.ativo });
     setMessage("");
   }
 
@@ -63,7 +63,7 @@ export function UserManagementPage() {
         <label>Username<input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
         <label>Pessoa vinculada<input value={form.pessoaId} onChange={(e) => setForm({ ...form, pessoaId: e.target.value })} /></label>
         <label>Perfil<select value={form.perfil} onChange={(e) => setForm({ ...form, perfil: e.target.value as PerfilUsuario })}><option value="ADMIN">Admin</option><option value="ADVOGADO">Advogado</option><option value="ASSISTENTE">Assistente</option></select></label>
-        {form.perfil === "ADVOGADO" ? <><label>Tratamento<select value={form.tratamento} onChange={(e) => setForm({ ...form, tratamento: e.target.value as EditState["tratamento"] })}><option value="">Selecione</option><option value="DR.">DR.</option><option value="DRA.">DRA.</option></select></label><label>OAB<input value={form.oab} onChange={(e) => setForm({ ...form, oab: e.target.value })} /></label></> : null}
+        {form.perfil === "ADVOGADO" ? <><label>Tratamento<select value={form.tratamento} onChange={(e) => setForm({ ...form, tratamento: e.target.value as EditState["tratamento"] })}><option value="">Selecione</option><option value="DR">DR.</option><option value="DRA">DRA.</option></select></label><label>OAB<input value={form.oab} onChange={(e) => setForm({ ...form, oab: e.target.value })} /></label></> : null}
         <label>Nova senha (opcional)<input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} /></label>
         <label className="checkbox-field"><input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} /><span>Ativo</span></label>
       </div><button className="primary-button" disabled={saving}>{saving ? "Salvando..." : "Salvar alterações"}</button><button className="ghost-button" type="button" onClick={() => setEditing(null)}>Cancelar</button></form>

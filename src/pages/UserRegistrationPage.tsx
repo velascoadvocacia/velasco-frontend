@@ -17,7 +17,7 @@ interface FormState {
   senha: string;
   confirmarSenha: string;
   perfil: PerfilUsuario | "";
-  tratamento: "DR." | "DRA." | "";
+  tratamento: "DR" | "DRA" | "";
   oab: string;
   usuarioAtivo: boolean;
 }
@@ -228,8 +228,8 @@ export function UserRegistrationPage() {
                     onChange={(event) => handleChange("tratamento", event.target.value as FormState["tratamento"])}
                   >
                     <option value="">Selecione</option>
-                    <option value="DR.">DR.</option>
-                    <option value="DRA.">DRA.</option>
+                    <option value="DR">DR.</option>
+                    <option value="DRA">DRA.</option>
                   </select>
                 </label>
 
