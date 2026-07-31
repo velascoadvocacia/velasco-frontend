@@ -276,7 +276,7 @@ function buildPreviewBlocks(
       ? defendants.map((item) => personLabel(item)).join(", ")
       : "[reclamada]";
   const lawyerName = lawyers.length
-      ? lawyers.map((item) => item.pessoa.nome).join(", ")
+      ? lawyers.map((item) => item.pessoa?.nome || item.username).join(", ")
       : "[advogado]";
   const claimantAddress = claimants.length
       ? claimants.map((item) => formatAddress(item)).join("; ")
@@ -456,7 +456,7 @@ export function RTComposerPage() {
   );
 
   const lawyerOptions = useMemo(
-      () => users.filter((item) => item.perfil === "ADVOGADO" || item.perfil === "ADMIN"),
+      () => users.filter((item) => item.perfil === "ADVOGADO" && Boolean(item.pessoa)),
       [users]
   );
 
@@ -730,7 +730,7 @@ export function RTComposerPage() {
                                     checked={values.advogadoIds.includes(String(item.id))}
                                     onChange={() => toggleLawyer(item.id)}
                                 />
-                                <strong>{item.pessoa.nome}</strong>
+                                <strong>{item.pessoa?.nome || item.username}</strong>
                               </label>
                           ))}
                         </div>
