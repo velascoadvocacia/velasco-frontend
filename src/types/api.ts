@@ -74,6 +74,10 @@ export interface UsuarioCreatePayload {
   ativo?: boolean;
 }
 
+export interface UsuarioUpdatePayload extends Omit<UsuarioCreatePayload, "senha"> {
+  senha?: string;
+}
+
 export interface AuthLoginResponse {
   token: string;
   tokenType: string;

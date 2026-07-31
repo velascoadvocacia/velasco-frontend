@@ -8,7 +8,8 @@ import type {
   ProcessoUpdatePayload,
   Processo,
   Usuario,
-  UsuarioCreatePayload
+  UsuarioCreatePayload,
+  UsuarioUpdatePayload
 } from "../types/api";
 import { API_BASE_URL } from "./constants";
 
@@ -105,7 +106,7 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
-  updateUsuario: (token: string, usuarioId: number, payload: UsuarioCreatePayload) =>
+  updateUsuario: (token: string, usuarioId: number, payload: UsuarioUpdatePayload) =>
     request<Usuario>(`/usuarios/${usuarioId}`, {
       method: "PUT",
       token,
