@@ -44,10 +44,10 @@ type BlockId =
     | "documentos";
 
 interface ComposerState {
-  advogadoId: string;
+  advogadoIds: string[];
   claimantSearch: string;
   defendantSearch: string;
-  claimantId: string;
+  claimantIds: string[];
   defendantIds: string[];
   funcao: string;
   dataAdmissao: string;
@@ -79,10 +79,10 @@ interface PreviewBlock {
 }
 
 const initialState: ComposerState = {
-  advogadoId: "",
+  advogadoIds: [],
   claimantSearch: "",
   defendantSearch: "",
-  claimantId: "",
+  claimantIds: [],
   defendantIds: [],
   funcao: "",
   dataAdmissao: "",
@@ -139,6 +139,33 @@ const defaultBlocks: BlockId[] = [
   "documentos"
 ];
 
+const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> = {
+  contrato_dispensa_sem_justa: ["dataAdmissao", "dataDemissao", "salario"],
+  contrato_dispensa_com_justa: ["dataDemissao"],
+  contrato_pedido_demissao: ["dataAdmissao", "dataDemissao"],
+  reversao_justa_causa: ["dataDemissao"],
+  baixa_ctps: ["dataDemissao"],
+  vinculo_sem_registro: ["dataAdmissao"],
+  horas_extras: ["mediaHorasExtras"],
+  multa_convencional: ["cctPeriodo", "clausulaConvencional", "assuntoClausula", "redacaoClausula"],
+  acumulo_funcao: ["salarioFuncaoOriginal", "salarioFuncaoAcumulada"],
+  pagamento_por_fora: ["valorPagoPorFora"],
+  acidente_trabalho: ["descricaoAcidente"],
+  documentos: ["mediaHorasExtras"]
+};
+
+function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) {
+  const keys = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
+  return Object.fromEntries(
+    Array.from(keys).map((key) => [key, optional(String(values[key] ?? ""))])
+  );
+}
+
+function selectedVariableValue(values: ComposerState, selectedBlocks: BlockId[], field: keyof ComposerState) {
+  const payload = buildVariablePayload(values, selectedBlocks);
+  return Object.prototype.hasOwnProperty.call(payload, field) ? optional(String(values[field] ?? "")) : null;
+}
+
 function optional(value?: string | null) {
   return value?.trim() ? value.trim() : null;
 }
@@ -187,8 +214,8 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
 
   return {
     ...initialState,
-    claimantId: String(processo.cliente.id),
-    advogadoId: String(processo.advogado.id),
+    claimantIds: (processo.reclamantes?.length ? processo.reclamantes : [processo.cliente]).map((item) => String(item.id)),
+    advogadoIds: (processo.advogados?.length ? processo.advogados : [processo.advogado]).map((item) => String(item.id)),
     defendantIds: processo.reclamadas.map((reclamada) => String(reclamada.id)),
     funcao: contrato?.funcaoExercida ?? "",
     dataAdmissao: contrato?.dataAdmissao ?? "",
@@ -236,19 +263,25 @@ export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: 
 }
 
 function buildPreviewBlocks(
-    claimant: PessoaResponse | undefined,
+    claimants: PessoaResponse[],
     defendants: PessoaResponse[],
-    lawyer: Usuario | undefined,
+    lawyers: Usuario[],
     values: ComposerState,
     selectedBlocks: BlockId[]
 ): PreviewBlock[] {
-  const claimantName = claimant?.nome || "[reclamante]";
+  const claimantName = claimants.length
+      ? claimants.map((item) => item.nome).join(", ")
+      : "[reclamante]";
   const defendantNames = defendants.length
       ? defendants.map((item) => personLabel(item)).join(", ")
       : "[reclamada]";
-  const lawyerName = lawyer?.pessoa.nome || "[advogado]";
-  const claimantAddress = formatAddress(claimant);
-  const functionName = optional(values.funcao) || claimant?.profissao || "[função]";
+  const lawyerName = lawyers.length
+      ? lawyers.map((item) => item.pessoa.nome).join(", ")
+      : "[advogado]";
+  const claimantAddress = claimants.length
+      ? claimants.map((item) => formatAddress(item)).join("; ")
+      : "endereço não informado";
+  const functionName = optional(values.funcao) || claimants[0]?.profissao || "[função]";
   const admission = values.dataAdmissao ? formatDate(values.dataAdmissao) : "[data de admissão]";
   const dismissal = values.dataDemissao ? formatDate(values.dataDemissao) : "[data de demissão]";
   const salary = optional(values.salario) || "[salário]";
@@ -273,7 +306,7 @@ function buildPreviewBlocks(
   const tipoRescisao = tipoRescisaoTexto[values.tipoRescisao] || "[modalidade de rescisão]";
 
   const contentMap: Record<BlockId, string> = {
-    qualificacao_reclamante: `${claimantName}, brasileiro(a), ${claimant?.estadoCivil?.toLowerCase() || "estado civil não informado"}, ${functionName}, residente e domiciliado(a) em ${claimantAddress}, CPF nº ${claimant?.cpf || "não informado"}, RG nº ${claimant?.rg || "não informado"}, PIS ${claimant?.pis || "não informado"}, por seus procuradores ${lawyerName}, ajuíza a presente reclamatória trabalhista.`,
+    qualificacao_reclamante: `${claimantName}, brasileiro(a), ${claimants[0]?.estadoCivil?.toLowerCase() || "estado civil não informado"}, ${functionName}, residente e domiciliado(a) em ${claimantAddress}, CPF nº ${claimants.map((item) => item.cpf || "não informado").join(", ")}, RG nº ${claimants.map((item) => item.rg || "não informado").join(", ")}, PIS ${claimants.map((item) => item.pis || "não informado").join(", ")}, por seus procuradores ${lawyerName}, ajuízam a presente reclamatória trabalhista.`,
     qualificacao_reclamada: defendants.length
         ? defendants.map((item) => `${personLabel(item)}, pessoa jurídica de direito privado, CNPJ nº ${item.cnpj || "não informado"}, com endereço à ${formatAddress(item)}.`).join(" ")
         : "____, pessoa jurídica de direito privado, CNPJ nº ___, com endereço completo, pelas razões de fato e de direito a seguir expostas.",
@@ -427,21 +460,41 @@ export function RTComposerPage() {
       [users]
   );
 
-  const selectedClaimant = people.find((item) => item.id === Number(values.claimantId));
+  const selectedClaimants = people.filter((item) => values.claimantIds.includes(String(item.id)));
   const selectedDefendants = people.filter((item) => values.defendantIds.includes(String(item.id)));
-  const selectedLawyer = lawyerOptions.find((item) => item.id === Number(values.advogadoId));
+  const selectedLawyers = lawyerOptions.filter((item) => values.advogadoIds.includes(String(item.id)));
 
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimant, selectedDefendants, selectedLawyer, values, selectedBlocks),
-      [selectedClaimant, selectedDefendants, selectedLawyer, values, selectedBlocks]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
     setValues((current) => ({ ...current, [field]: value as never }));
   }
 
-  function chooseClaimant(personId: number) {
-    setValues((current) => ({ ...current, claimantId: String(personId), claimantSearch: "" }));
+  function addClaimant(personId: number) {
+    setValues((current) => ({
+      ...current,
+      claimantIds: current.claimantIds.includes(String(personId)) ? current.claimantIds : [...current.claimantIds, String(personId)],
+      claimantSearch: ""
+    }));
+  }
+
+  function removeClaimant(personId: number) {
+    setValues((current) => ({
+      ...current,
+      claimantIds: current.claimantIds.filter((item) => item !== String(personId))
+    }));
+  }
+
+  function toggleLawyer(userId: number) {
+    setValues((current) => ({
+      ...current,
+      advogadoIds: current.advogadoIds.includes(String(userId))
+          ? current.advogadoIds.filter((item) => item !== String(userId))
+          : [...current.advogadoIds, String(userId)]
+    }));
   }
 
   function addDefendant(personId: number) {
@@ -489,8 +542,8 @@ export function RTComposerPage() {
       return {
         numeroProcesso: existingProcesso.numeroProcesso,
         descricao,
-        clienteId: Number(values.claimantId),
-        advogadoId: Number(values.advogadoId),
+        clienteId: Number(values.claimantIds[0]),
+        advogadoId: Number(values.advogadoIds[0]),
         dataAbertura: existingProcesso.dataAbertura,
         reclamadasIds: values.defendantIds.map(Number),
         status: existingProcesso.status,
@@ -509,23 +562,27 @@ export function RTComposerPage() {
               possuiDoencaOcupacional: false,
               requerEmissaoCat: false
             },
-        rtDescricaoAcidente: optional(values.descricaoAcidente),
-        rtCctPeriodo: optional(values.cctPeriodo),
-        rtClausulaConvencional: optional(values.clausulaConvencional),
-        rtAssuntoClausula: optional(values.assuntoClausula),
-        rtRedacaoClausula: optional(values.redacaoClausula),
-        rtSalarioFuncaoOriginal: optional(values.salarioFuncaoOriginal),
-        rtSalarioFuncaoAcumulada: optional(values.salarioFuncaoAcumulada),
-        rtValorPagoPorFora: optional(values.valorPagoPorFora),
-        rtMediaHorasExtras: optional(values.mediaHorasExtras)
+        rtDescricaoAcidente: selectedVariableValue(values, selectedBlocks, "descricaoAcidente"),
+        rtCctPeriodo: selectedVariableValue(values, selectedBlocks, "cctPeriodo"),
+        rtClausulaConvencional: selectedVariableValue(values, selectedBlocks, "clausulaConvencional"),
+        rtAssuntoClausula: selectedVariableValue(values, selectedBlocks, "assuntoClausula"),
+        rtRedacaoClausula: selectedVariableValue(values, selectedBlocks, "redacaoClausula"),
+        rtSalarioFuncaoOriginal: selectedVariableValue(values, selectedBlocks, "salarioFuncaoOriginal"),
+        rtSalarioFuncaoAcumulada: selectedVariableValue(values, selectedBlocks, "salarioFuncaoAcumulada"),
+        rtValorPagoPorFora: selectedVariableValue(values, selectedBlocks, "valorPagoPorFora"),
+        rtMediaHorasExtras: selectedVariableValue(values, selectedBlocks, "mediaHorasExtras"),
+        advogadosIds: values.advogadoIds.map(Number),
+        reclamantesIds: values.claimantIds.map(Number),
+        blocosSelecionados: selectedBlocks,
+        dadosVariaveis: buildVariablePayload(values, selectedBlocks)
       };
     }
 
     return {
       numeroProcesso: `RT-${Date.now()}`,
       descricao,
-      clienteId: Number(values.claimantId),
-      advogadoId: Number(values.advogadoId),
+      clienteId: Number(values.claimantIds[0]),
+      advogadoId: Number(values.advogadoIds[0]),
       dataAbertura: new Date().toISOString().split("T")[0],
       reclamadasIds: values.defendantIds.map(Number),
       status: "ABERTO",
@@ -537,15 +594,19 @@ export function RTComposerPage() {
         possuiDoencaOcupacional: false,
         requerEmissaoCat: false
       },
-      rtDescricaoAcidente: optional(values.descricaoAcidente),
-      rtCctPeriodo: optional(values.cctPeriodo),
-      rtClausulaConvencional: optional(values.clausulaConvencional),
-      rtAssuntoClausula: optional(values.assuntoClausula),
-      rtRedacaoClausula: optional(values.redacaoClausula),
-      rtSalarioFuncaoOriginal: optional(values.salarioFuncaoOriginal),
-      rtSalarioFuncaoAcumulada: optional(values.salarioFuncaoAcumulada),
-      rtValorPagoPorFora: optional(values.valorPagoPorFora),
-      rtMediaHorasExtras: optional(values.mediaHorasExtras)
+      rtDescricaoAcidente: selectedVariableValue(values, selectedBlocks, "descricaoAcidente"),
+      rtCctPeriodo: selectedVariableValue(values, selectedBlocks, "cctPeriodo"),
+      rtClausulaConvencional: selectedVariableValue(values, selectedBlocks, "clausulaConvencional"),
+      rtAssuntoClausula: selectedVariableValue(values, selectedBlocks, "assuntoClausula"),
+      rtRedacaoClausula: selectedVariableValue(values, selectedBlocks, "redacaoClausula"),
+      rtSalarioFuncaoOriginal: selectedVariableValue(values, selectedBlocks, "salarioFuncaoOriginal"),
+      rtSalarioFuncaoAcumulada: selectedVariableValue(values, selectedBlocks, "salarioFuncaoAcumulada"),
+      rtValorPagoPorFora: selectedVariableValue(values, selectedBlocks, "valorPagoPorFora"),
+      rtMediaHorasExtras: selectedVariableValue(values, selectedBlocks, "mediaHorasExtras"),
+      advogadosIds: values.advogadoIds.map(Number),
+      reclamantesIds: values.claimantIds.map(Number),
+      blocosSelecionados: selectedBlocks,
+      dadosVariaveis: buildVariablePayload(values, selectedBlocks)
     };
   }
 
@@ -585,7 +646,7 @@ export function RTComposerPage() {
 
     try {
       if (!session) throw new Error("Falha ao exportar");
-      await exportToDocx(previewBlocks, selectedClaimant?.nome ?? "reclamatoria", session.token);
+      await exportToDocx(previewBlocks, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token);
     } catch (exportError) {
       const message = exportError instanceof Error ? exportError.message : "Falha ao exportar o documento.";
       setError(message);
@@ -659,30 +720,31 @@ export function RTComposerPage() {
                         />
                       </label>
 
-                      <label>
-                        Advogado responsável
-                        <select
-                            value={values.advogadoId}
-                            onChange={(event) => handleChange("advogadoId", event.target.value)}
-                        >
-                          <option value="">Selecione</option>
+                      <div className="multi-picker-field">
+                        <span>Advogados responsáveis</span>
+                        <div className="multi-picker-options">
                           {lawyerOptions.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.pessoa.nome}
-                              </option>
+                              <label className="checkbox-card" key={item.id}>
+                                <input
+                                    type="checkbox"
+                                    checked={values.advogadoIds.includes(String(item.id))}
+                                    onChange={() => toggleLawyer(item.id)}
+                                />
+                                <strong>{item.pessoa.nome}</strong>
+                              </label>
                           ))}
-                        </select>
-                      </label>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="entity-picker">
                       <div className="entity-results">
                         {claimantOptions.slice(0, 8).map((item) => (
                             <button
-                                className={`entity-card ${values.claimantId === String(item.id) ? "selected" : ""}`}
+                                className="entity-card"
                                 key={item.id}
                                 type="button"
-                                onClick={() => chooseClaimant(item.id)}
+                                onClick={() => addClaimant(item.id)}
                             >
                               <strong>{item.nome}</strong>
                               <span>{item.cpf || "CPF não informado"}</span>
@@ -692,13 +754,18 @@ export function RTComposerPage() {
                       </div>
                     </div>
 
-                    {selectedClaimant ? (
-                        <div className="selected-summary-card">
-                          <strong>Reclamante selecionado</strong>
-                          <p>{selectedClaimant.nome}</p>
-                          <span>{formatAddress(selectedClaimant)}</span>
-                        </div>
-                    ) : null}
+                    <div className="selected-entities-grid">
+                      {selectedClaimants.map((item) => (
+                          <div className="selected-summary-card" key={item.id}>
+                            <strong>{item.nome}</strong>
+                            <span>{item.cpf || "CPF não informado"}</span>
+                            <p>{formatAddress(item)}</p>
+                            <button className="inline-remove-button" type="button" onClick={() => removeClaimant(item.id)}>
+                              Remover
+                            </button>
+                          </div>
+                      ))}
+                    </div>
 
                     <label>
                       Buscar reclamada
@@ -742,31 +809,16 @@ export function RTComposerPage() {
                   </div>
                 </SectionCard>
 
-                {/* ── Dados variáveis ── */}
+                {/* ── Dados gerais do contrato/cadastro ── */}
                 <SectionCard
-                    title="Dados variáveis do caso"
-                    description="Esses campos alimentam os espaços variáveis dos textos do documento."
+                    title="Dados gerais do contrato"
+                    description="Dados do cadastro/contrato usados pelos blocos selecionados."
                 >
                   <div className="party-form">
                     <div className="form-grid">
                       <label>
                         Função
                         <input value={values.funcao} onChange={(event) => handleChange("funcao", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Data de admissão
-                        <input type="date" value={values.dataAdmissao} onChange={(event) => handleChange("dataAdmissao", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Data de demissão
-                        <input type="date" value={values.dataDemissao} onChange={(event) => handleChange("dataDemissao", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Última remuneração
-                        <input value={values.salario} onChange={(event) => handleChange("salario", event.target.value)} />
                       </label>
 
                       <label>
@@ -787,50 +839,6 @@ export function RTComposerPage() {
                         </select>
                       </label>
 
-                      <label>
-                        Descrição do acidente
-                        <textarea rows={4} value={values.descricaoAcidente} onChange={(event) => handleChange("descricaoAcidente", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Período da CCT
-                        <input value={values.cctPeriodo} onChange={(event) => handleChange("cctPeriodo", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Cláusula convencional
-                        <input value={values.clausulaConvencional} onChange={(event) => handleChange("clausulaConvencional", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Assunto da cláusula
-                        <input value={values.assuntoClausula} onChange={(event) => handleChange("assuntoClausula", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Redação da cláusula
-                        <textarea rows={4} value={values.redacaoClausula} onChange={(event) => handleChange("redacaoClausula", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Salário da função original
-                        <input value={values.salarioFuncaoOriginal} onChange={(event) => handleChange("salarioFuncaoOriginal", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Salário/acréscimo da função acumulada
-                        <input value={values.salarioFuncaoAcumulada} onChange={(event) => handleChange("salarioFuncaoAcumulada", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Valor pago por fora
-                        <input value={values.valorPagoPorFora} onChange={(event) => handleChange("valorPagoPorFora", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Média de horas extras
-                        <input value={values.mediaHorasExtras} onChange={(event) => handleChange("mediaHorasExtras", event.target.value)} />
-                      </label>
                     </div>
                   </div>
                 </SectionCard>
@@ -845,16 +853,49 @@ export function RTComposerPage() {
                         <div className="block-section-group" key={section}>
                           <div className="block-section-title">{section}</div>
                           {blocks.map((block) => (
-                              <label className="checkbox-card stacked" key={block.id}>
-                                <input
-                                    type="checkbox"
-                                    checked={selectedBlocks.includes(block.id)}
-                                    onChange={() => toggleBlock(block.id)}
-                                />
-                                <div>
-                                  <strong>{block.title}</strong>
+                              <div className={`block-accordion ${selectedBlocks.includes(block.id) ? "is-open" : ""}`} key={block.id}>
+                                <label className="checkbox-card stacked">
+                                  <input
+                                      type="checkbox"
+                                      checked={selectedBlocks.includes(block.id)}
+                                      onChange={() => toggleBlock(block.id)}
+                                  />
+                                  <div>
+                                    <strong>{block.title}</strong>
+                                  </div>
+                                </label>
+                                <div className="block-accordion-content">
+                                  <div className="form-grid block-variable-fields">
+                                    {(variableFieldsByBlock[block.id] ?? []).map((field) => {
+                                      const labels: Partial<Record<keyof ComposerState, string>> = {
+                                        dataAdmissao: "Data de admissão",
+                                        dataDemissao: "Data de demissão",
+                                        salario: "Última remuneração",
+                                        descricaoAcidente: "Descrição do acidente",
+                                        cctPeriodo: "Período da CCT",
+                                        clausulaConvencional: "Cláusula convencional",
+                                        assuntoClausula: "Assunto da cláusula",
+                                        redacaoClausula: "Redação da cláusula",
+                                        salarioFuncaoOriginal: "Salário da função original",
+                                        salarioFuncaoAcumulada: "Salário/acréscimo da função acumulada",
+                                        valorPagoPorFora: "Valor pago por fora",
+                                        mediaHorasExtras: "Média de horas extras"
+                                      };
+                                      const multiline = ["descricaoAcidente", "redacaoClausula"].includes(field);
+                                      return (
+                                          <label key={field}>
+                                            {labels[field]}
+                                            {multiline ? (
+                                                <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
+                                            ) : (
+                                                <input type={field === "dataAdmissao" || field === "dataDemissao" ? "date" : "text"} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
+                                            )}
+                                          </label>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
-                              </label>
+                              </div>
                           ))}
                         </div>
                     ))}

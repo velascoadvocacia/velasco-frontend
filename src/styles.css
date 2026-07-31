@@ -358,6 +358,54 @@ textarea {
   color: #2f2f2f;
 }
 
+.multi-picker-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.multi-picker-field > span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #777;
+}
+
+.multi-picker-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.15rem;
+  max-height: 11rem;
+  overflow: auto;
+  border: 0.5px solid #e2e2e2;
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+}
+
+.block-accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  transition: grid-template-rows 0.22s ease, opacity 0.18s ease;
+  padding-left: 2rem;
+}
+
+.block-accordion-content > .block-variable-fields {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.block-accordion.is-open .block-accordion-content {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  padding-bottom: 0.65rem;
+}
+
+.block-variable-fields {
+  gap: 0.65rem;
+}
+
 /* ─── Entity cards ───────────────────────────────────── */
 
 .entity-picker,

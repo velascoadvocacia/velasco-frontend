@@ -142,6 +142,8 @@ export interface Processo {
   advogadoResponsavel: PessoaResumo;
   cliente: PessoaResumo;
   advogado: PessoaResumo;
+  advogados?: PessoaResumo[];
+  reclamantes?: PessoaResumo[];
   reclamadas: PessoaResumo[];
   sociosResponsaveis: PessoaResumo[];
   dataAbertura: string;
@@ -266,6 +268,10 @@ export interface ProcessoCreatePayload {
   rtSalarioFuncaoAcumulada?: string | null;
   rtValorPagoPorFora?: string | null;
   rtMediaHorasExtras?: string | null;
+  advogadosIds?: number[];
+  reclamantesIds?: number[];
+  blocosSelecionados?: string[];
+  dadosVariaveis?: Record<string, string | null>;
 }
 
 export type ProcessoUpdatePayload = ProcessoCreatePayload;
