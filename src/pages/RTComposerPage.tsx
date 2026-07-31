@@ -44,6 +44,11 @@ type BlockId =
     | "danos_nao_emissao_cat"
     | "documentos";
 
+const BLOCKS_FROM_API: BlockId[] = [
+  "qualificacao_reclamante",
+  "qualificacao_reclamada"
+];
+
 interface ComposerState {
   advogadoIds: string[];
   claimantSearch: string;
@@ -269,7 +274,7 @@ function buildPreviewBlocks(
     lawyers: Usuario[],
     values: ComposerState,
     selectedBlocks: BlockId[],
-    qualificationText: string
+    apiPreviewTexts: Partial<Record<BlockId, string>>
 ): PreviewBlock[] {
   const claimantName = claimants.length
       ? claimants.map((item) => item.nome).join(", ")
@@ -302,9 +307,6 @@ function buildPreviewBlocks(
   const tipoRescisao = tipoRescisaoTexto[values.tipoRescisao] || "[modalidade de rescisão]";
 
   const contentMap: Partial<Record<BlockId, string>> = {
-    qualificacao_reclamada: defendants.length
-        ? defendants.map((item) => `${personLabel(item)}, pessoa jurídica de direito privado, CNPJ nº ${item.cnpj || "não informado"}, com endereço à ${formatAddress(item)}.`).join(" ")
-        : "____, pessoa jurídica de direito privado, CNPJ nº ___, com endereço completo, pelas razões de fato e de direito a seguir expostas.",
     contrato_dispensa_sem_justa: `${claimantName} foi admitido(a) em ${admission} para exercer a função de ${functionName}, percebendo última remuneração de ${salary}. Ao final do pacto laboral, foi dispensado(a) sem justa causa em ${dismissal}, sem receber corretamente as verbas rescisórias. Pelo exposto, requer-se a condenação da ré ao pagamento de saldo salarial, aviso-prévio, 13º proporcional, férias com 1/3, FGTS com multa de 40% e liberação das guias competentes.`,
     contrato_dispensa_com_justa: `A parte autora teve aplicada justa causa em ${dismissal}. Contudo, a penalidade se mostra inválida diante da ausência de proporcionalidade e de prova robusta. Requer-se a declaração de nulidade da justa causa, com conversão para dispensa sem justa causa e pagamento das verbas correspondentes.`,
     contrato_pedido_demissao: `${claimantName} formalizou pedido de demissão em ${dismissal}, embora o contexto contratual revele vícios e descumprimentos patronais que impõem análise judicial da modalidade extintiva, com o consequente pagamento das parcelas cabíveis.`,
@@ -336,7 +338,7 @@ function buildPreviewBlocks(
     return {
       id,
       title: definition.title,
-      content: id === "qualificacao_reclamante" ? qualificationText : contentMap[id] || ""
+      content: BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || ""
     };
   });
 }
@@ -381,11 +383,11 @@ export function RTComposerPage() {
   });
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
-  const [qualificationPreview, setQualificationPreview] = useState({
-    text: "Selecione as partes e advogados para gerar a qualificação.",
-    loading: false,
-    error: ""
-  });
+  const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
+    text: string;
+    loading: boolean;
+    error: string;
+  }>>>({});
 
   useEffect(() => {
     async function loadData() {
@@ -475,9 +477,9 @@ export function RTComposerPage() {
   const selectedDefendants = people.filter((item) => values.defendantIds.includes(String(item.id)));
   const selectedLawyers = lawyerOptions.filter((item) => values.advogadoIds.includes(String(item.id)));
 
-  const qualificationSelected = selectedBlocks.includes("qualificacao_reclamante");
-  const qualificationDependencies = [
-    qualificationSelected,
+  const selectedApiBlocks = selectedBlocks.filter((block) => BLOCKS_FROM_API.includes(block));
+  const apiPreviewDependencies = [
+    selectedApiBlocks.join(","),
     ...values.claimantIds,
     ...values.defendantIds,
     ...values.advogadoIds,
@@ -485,62 +487,80 @@ export function RTComposerPage() {
   ];
 
   useEffect(() => {
-    if (!qualificationSelected) {
-      setQualificationPreview({ text: "", loading: false, error: "" });
+    if (!selectedApiBlocks.length) {
+      setApiPreviews({});
       return;
     }
 
     if (!selectedClaimants.length && !selectedDefendants.length && !selectedLawyers.length) {
-      setQualificationPreview({
+      setApiPreviews(Object.fromEntries(selectedApiBlocks.map((id) => [id, {
         text: "Selecione as partes e advogados para gerar a qualificação.",
         loading: false,
         error: ""
-      });
+      }])));
       return;
     }
 
     if (!session) return;
-    setQualificationPreview((current) => ({ ...current, loading: true, error: "" }));
+    setApiPreviews((current) => ({
+      ...current,
+      ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
+        text: current[id]?.text || "",
+        loading: true,
+        error: ""
+      }]))
+    }));
     const timer = window.setTimeout(() => {
       const payload = {
         ...(isEditing && processoId ? { processoId: Number(processoId) } : {}),
         reclamantesIds: values.claimantIds.map(Number),
         reclamadasIds: values.defendantIds.map(Number),
         advogadosIds: values.advogadoIds.map(Number),
-        blocosSelecionados: ["qualificacao_reclamante"],
-        dadosVariaveis: buildVariablePayload(values, ["qualificacao_reclamante"])
+        blocosSelecionados: selectedApiBlocks,
+        dadosVariaveis: buildVariablePayload(values, selectedApiBlocks)
       };
 
       void api.previewRT(session.token, payload)
         .then((response) => {
-          const block = response.blocos.find((item) => item.id === "qualificacao_reclamante");
-          setQualificationPreview({
-            text: block?.texto || "Texto de qualificação não retornado pelo backend.",
-            loading: false,
-            error: ""
-          });
+          setApiPreviews((current) => ({
+            ...current,
+            ...Object.fromEntries(selectedApiBlocks.map((id) => {
+              const block = response.blocos.find((item) => item.id === id);
+              return [id, {
+                text: block?.texto || "Texto de qualificação não retornado pelo backend.",
+                loading: false,
+                error: ""
+              }];
+            }))
+          }));
         })
         .catch((previewError) => {
-          setQualificationPreview({
-            text: "",
-            loading: false,
-            error: previewError instanceof Error ? previewError.message : "Falha ao gerar a qualificação."
-          });
+          const error = previewError instanceof Error ? previewError.message : "Falha ao gerar a qualificação.";
+          setApiPreviews((current) => ({
+            ...current,
+            ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
+              text: "",
+              loading: false,
+              error
+            }]))
+          }));
         });
     }, 500);
 
     return () => window.clearTimeout(timer);
     // The serialized dependency list tracks selected IDs and variable values without reacting to search text.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, processoId, isEditing, qualificationDependencies.join("|")]);
+  }, [session, processoId, isEditing, apiPreviewDependencies.join("|")]);
 
-  const qualificationText = qualificationPreview.loading
-    ? "Gerando texto..."
-    : qualificationPreview.error || qualificationPreview.text;
+  const apiPreviewTexts = selectedApiBlocks.reduce<Partial<Record<BlockId, string>>>((texts, id) => {
+    const preview = apiPreviews[id];
+    texts[id] = preview?.loading ? "Gerando texto..." : preview?.error || preview?.text || "";
+    return texts;
+  }, {});
 
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, qualificationText),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, qualificationText]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, apiPreviewTexts),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, apiPreviewTexts]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
