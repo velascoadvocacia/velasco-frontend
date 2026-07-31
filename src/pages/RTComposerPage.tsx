@@ -109,12 +109,10 @@ const initialState: ComposerState = {
   mediaHorasExtras: ""
 };
 
-const RT_DRAFT_STORAGE_KEY = "velasco.rt-composer-draft";
-
 const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamante", title: "Qualificação do reclamante", section: "Dados iniciais" },
-  { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
+  { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_dispensa_sem_justa", title: "Dispensa sem justa causa", section: "Contrato de trabalho" },
   { id: "contrato_dispensa_com_justa", title: "Dispensa com justa causa", section: "Contrato de trabalho" },
   { id: "contrato_pedido_demissao", title: "Pedido de demissão", section: "Contrato de trabalho" },
@@ -143,11 +141,17 @@ const blockDefinitions: BlockDefinition[] = [
 
 const defaultBlocks: BlockId[] = [
   "qualificacao_reclamante",
-  "dados_reclamante",
   "qualificacao_reclamada",
+  "dados_reclamante",
   "contrato_dispensa_sem_justa",
   "documentos"
 ];
+
+function orderSelectedBlocks(selectedBlocks: BlockId[]) {
+  return blockDefinitions
+    .filter((block) => selectedBlocks.includes(block.id))
+    .map((block) => block.id);
+}
 
 const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> = {
   contrato_dispensa_sem_justa: ["dataAdmissao", "dataDemissao", "salario"],
@@ -353,38 +357,14 @@ export function RTComposerPage() {
   const [searchParams] = useSearchParams();
   const processoId = searchParams.get("processoId");
   const isEditing = Boolean(processoId);
-  const [values, setValues] = useState<ComposerState>(() => {
-    if (new URLSearchParams(window.location.search).get("processoId")) {
-      return initialState;
-    }
-    try {
-      const raw = window.localStorage.getItem(RT_DRAFT_STORAGE_KEY);
-      return raw ? { ...initialState, ...(JSON.parse(raw) as Partial<ComposerState>) } : initialState;
-    } catch {
-      return initialState;
-    }
-  });
+  const [values, setValues] = useState<ComposerState>(initialState);
   const [people, setPeople] = useState<PessoaResponse[]>([]);
   const [users, setUsers] = useState<Usuario[]>([]);
-  const [selectedBlocks, setSelectedBlocks] = useState<BlockId[]>(() => {
-    try {
-      const raw = window.localStorage.getItem(`${RT_DRAFT_STORAGE_KEY}:blocks`);
-      return raw ? (JSON.parse(raw) as BlockId[]) : defaultBlocks;
-    } catch {
-      return defaultBlocks;
-    }
-  });
+  const [selectedBlocks, setSelectedBlocks] = useState<BlockId[]>(defaultBlocks);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exportingDocx, setExportingDocx] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(() => {
-    try {
-      return window.localStorage.getItem(`${RT_DRAFT_STORAGE_KEY}:savedAt`);
-    } catch {
-      return null;
-    }
-  });
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
@@ -394,10 +374,21 @@ export function RTComposerPage() {
   }>>>({});
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       if (!session) return;
       setLoading(true);
       setError("");
+
+      if (!processoId) {
+        setValues(initialState);
+        setSelectedBlocks(defaultBlocks);
+        setExistingProcesso(null);
+        setApiPreviews({});
+        setSavedMessage("");
+      }
+
       try {
         const [pessoas, usuarios, processo] = await Promise.all([
           api.getPessoas(session.token, 0, 300),
@@ -406,6 +397,8 @@ export function RTComposerPage() {
             ? api.getProcessoById(session.token, Number(processoId))
             : Promise.resolve(null)
         ]);
+
+        if (cancelled) return;
 
         setPeople(pessoas.items);
         setUsers(usuarios.items);
@@ -419,25 +412,20 @@ export function RTComposerPage() {
           setSelectedBlocks(blocosDerivados.length > 0 ? blocosDerivados : defaultBlocks);
         }
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Falha ao carregar dados da RT.");
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Falha ao carregar dados da RT.");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     void loadData();
-  }, [processoId, session]);
 
-  useEffect(() => {
-    if (processoId) return;
-    try {
-      window.localStorage.setItem(RT_DRAFT_STORAGE_KEY, JSON.stringify(values));
-      window.localStorage.setItem(`${RT_DRAFT_STORAGE_KEY}:blocks`, JSON.stringify(selectedBlocks));
-      const savedAt = new Date().toISOString();
-      window.localStorage.setItem(`${RT_DRAFT_STORAGE_KEY}:savedAt`, savedAt);
-      setDraftSavedAt(savedAt);
-    } catch {}
-  }, [selectedBlocks, values, processoId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [processoId, session]);
 
   const claimantOptions = useMemo(
       () =>
@@ -481,7 +469,8 @@ export function RTComposerPage() {
   const selectedDefendants = people.filter((item) => values.defendantIds.includes(String(item.id)));
   const selectedLawyers = lawyerOptions.filter((item) => values.advogadoIds.includes(String(item.id)));
 
-  const selectedApiBlocks = selectedBlocks.filter((block) => BLOCKS_FROM_API.includes(block));
+  const orderedSelectedBlocks = useMemo(() => orderSelectedBlocks(selectedBlocks), [selectedBlocks]);
+  const selectedApiBlocks = orderedSelectedBlocks.filter((block) => BLOCKS_FROM_API.includes(block));
   const apiPreviewDependencies = [
     selectedApiBlocks.join(","),
     ...values.claimantIds,
@@ -563,8 +552,8 @@ export function RTComposerPage() {
   }, {});
 
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, apiPreviewTexts),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, selectedBlocks, apiPreviewTexts]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
@@ -628,14 +617,9 @@ export function RTComposerPage() {
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
-    setDraftSavedAt(null);
-    try {
-      window.localStorage.removeItem(RT_DRAFT_STORAGE_KEY);
-      window.localStorage.removeItem(`${RT_DRAFT_STORAGE_KEY}:blocks`);
-      window.localStorage.removeItem(`${RT_DRAFT_STORAGE_KEY}:savedAt`);
-    } catch {
-      // Ignore local draft cleanup failures.
-    }
+    setExistingProcesso(null);
+    setApiPreviews({});
+    setSavedMessage("");
   }
 
   function buildProcessoPayload(): ProcessoCreatePayload {
@@ -665,19 +649,19 @@ export function RTComposerPage() {
               possuiDoencaOcupacional: false,
               requerEmissaoCat: false
             },
-        rtDescricaoAcidente: selectedVariableValue(values, selectedBlocks, "descricaoAcidente"),
-        rtCctPeriodo: selectedVariableValue(values, selectedBlocks, "cctPeriodo"),
-        rtClausulaConvencional: selectedVariableValue(values, selectedBlocks, "clausulaConvencional"),
-        rtAssuntoClausula: selectedVariableValue(values, selectedBlocks, "assuntoClausula"),
-        rtRedacaoClausula: selectedVariableValue(values, selectedBlocks, "redacaoClausula"),
-        rtSalarioFuncaoOriginal: selectedVariableValue(values, selectedBlocks, "salarioFuncaoOriginal"),
-        rtSalarioFuncaoAcumulada: selectedVariableValue(values, selectedBlocks, "salarioFuncaoAcumulada"),
-        rtValorPagoPorFora: selectedVariableValue(values, selectedBlocks, "valorPagoPorFora"),
-        rtMediaHorasExtras: selectedVariableValue(values, selectedBlocks, "mediaHorasExtras"),
+        rtDescricaoAcidente: selectedVariableValue(values, orderedSelectedBlocks, "descricaoAcidente"),
+        rtCctPeriodo: selectedVariableValue(values, orderedSelectedBlocks, "cctPeriodo"),
+        rtClausulaConvencional: selectedVariableValue(values, orderedSelectedBlocks, "clausulaConvencional"),
+        rtAssuntoClausula: selectedVariableValue(values, orderedSelectedBlocks, "assuntoClausula"),
+        rtRedacaoClausula: selectedVariableValue(values, orderedSelectedBlocks, "redacaoClausula"),
+        rtSalarioFuncaoOriginal: selectedVariableValue(values, orderedSelectedBlocks, "salarioFuncaoOriginal"),
+        rtSalarioFuncaoAcumulada: selectedVariableValue(values, orderedSelectedBlocks, "salarioFuncaoAcumulada"),
+        rtValorPagoPorFora: selectedVariableValue(values, orderedSelectedBlocks, "valorPagoPorFora"),
+        rtMediaHorasExtras: selectedVariableValue(values, orderedSelectedBlocks, "mediaHorasExtras"),
         advogadosIds: values.advogadoIds.map(Number),
         reclamantesIds: values.claimantIds.map(Number),
-        blocosSelecionados: selectedBlocks,
-        dadosVariaveis: buildVariablePayload(values, selectedBlocks)
+        blocosSelecionados: orderedSelectedBlocks,
+        dadosVariaveis: buildVariablePayload(values, orderedSelectedBlocks)
       };
     }
 
@@ -697,19 +681,19 @@ export function RTComposerPage() {
         possuiDoencaOcupacional: false,
         requerEmissaoCat: false
       },
-      rtDescricaoAcidente: selectedVariableValue(values, selectedBlocks, "descricaoAcidente"),
-      rtCctPeriodo: selectedVariableValue(values, selectedBlocks, "cctPeriodo"),
-      rtClausulaConvencional: selectedVariableValue(values, selectedBlocks, "clausulaConvencional"),
-      rtAssuntoClausula: selectedVariableValue(values, selectedBlocks, "assuntoClausula"),
-      rtRedacaoClausula: selectedVariableValue(values, selectedBlocks, "redacaoClausula"),
-      rtSalarioFuncaoOriginal: selectedVariableValue(values, selectedBlocks, "salarioFuncaoOriginal"),
-      rtSalarioFuncaoAcumulada: selectedVariableValue(values, selectedBlocks, "salarioFuncaoAcumulada"),
-      rtValorPagoPorFora: selectedVariableValue(values, selectedBlocks, "valorPagoPorFora"),
-      rtMediaHorasExtras: selectedVariableValue(values, selectedBlocks, "mediaHorasExtras"),
+      rtDescricaoAcidente: selectedVariableValue(values, orderedSelectedBlocks, "descricaoAcidente"),
+      rtCctPeriodo: selectedVariableValue(values, orderedSelectedBlocks, "cctPeriodo"),
+      rtClausulaConvencional: selectedVariableValue(values, orderedSelectedBlocks, "clausulaConvencional"),
+      rtAssuntoClausula: selectedVariableValue(values, orderedSelectedBlocks, "assuntoClausula"),
+      rtRedacaoClausula: selectedVariableValue(values, orderedSelectedBlocks, "redacaoClausula"),
+      rtSalarioFuncaoOriginal: selectedVariableValue(values, orderedSelectedBlocks, "salarioFuncaoOriginal"),
+      rtSalarioFuncaoAcumulada: selectedVariableValue(values, orderedSelectedBlocks, "salarioFuncaoAcumulada"),
+      rtValorPagoPorFora: selectedVariableValue(values, orderedSelectedBlocks, "valorPagoPorFora"),
+      rtMediaHorasExtras: selectedVariableValue(values, orderedSelectedBlocks, "mediaHorasExtras"),
       advogadosIds: values.advogadoIds.map(Number),
       reclamantesIds: values.claimantIds.map(Number),
-      blocosSelecionados: selectedBlocks,
-      dadosVariaveis: buildVariablePayload(values, selectedBlocks)
+      blocosSelecionados: orderedSelectedBlocks,
+      dadosVariaveis: buildVariablePayload(values, orderedSelectedBlocks)
     };
   }
 
@@ -770,7 +754,6 @@ export function RTComposerPage() {
           subtitle="Monte a reclamatória a partir do cadastro das partes e dos blocos reais do documento-base."
           actions={
             <div className="page-actions-cluster">
-              {draftSavedAt ? <span className="draft-indicator">Rascunho salvo no navegador</span> : null}
               {savedMessage ? <span className="draft-indicator">{savedMessage}</span> : null}
               <button
                   className="ghost-button ghost-button-light"
@@ -793,7 +776,7 @@ export function RTComposerPage() {
                 {exportingDocx ? "Exportando..." : "Exportar .docx"}
               </button>
               <button className="ghost-button ghost-button-light" type="button" onClick={clearDraft}>
-                Limpar rascunho
+                Limpar campos
               </button>
             </div>
           }
