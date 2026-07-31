@@ -456,7 +456,7 @@ export function RTComposerPage() {
   );
 
   const lawyerOptions = useMemo(
-      () => users.filter((item) => item.perfil === "ADVOGADO" && Boolean(item.pessoa)),
+      () => users.filter((item) => item.perfil === "ADVOGADO" || item.perfil === "ADMIN"),
       [users]
   );
 

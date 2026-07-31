@@ -133,7 +133,7 @@ export function RtListPage() {
                 <option value="">Todos</option>
                 {usuarios.map((usuario) => (
                   <option key={usuario.id} value={usuario.id}>
-                    {usuario.pessoa.nome}
+                    {usuario.pessoa?.nome || usuario.username}
                   </option>
                 ))}
               </select>

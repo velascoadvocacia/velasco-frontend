@@ -95,7 +95,7 @@ export function AdminDashboardPage() {
                   <div className="list-row" key={usuario.id}>
                     <div>
                       <strong>{usuario.username}</strong>
-                      <p>{usuario.pessoa.nome}</p>
+                      <p>{usuario.pessoa?.nome || usuario.username}</p>
                     </div>
                     <div>
                       <StatusBadge value={usuario.perfil} />

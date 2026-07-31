@@ -13,6 +13,7 @@ interface AppShellProps {
 
 export function AppShell({ title, subtitle, actions, children }: AppShellProps) {
   const { session, isAdmin, logout } = useAuth();
+  const profileName = session?.usuario.pessoa?.nome || session?.usuario.username || "Usuário";
 
   return (
     <div className="app-shell">
@@ -28,9 +29,9 @@ export function AppShell({ title, subtitle, actions, children }: AppShellProps) 
         </Link>
 
         <div className="profile-card">
-          <div className="avatar">{getInitials(session?.usuario.pessoa.nome || "Usuário")}</div>
+          <div className="avatar">{getInitials(profileName)}</div>
           <div>
-            <strong>{session?.usuario.pessoa.nome}</strong>
+            <strong>{profileName}</strong>
             <p>{session?.usuario.perfil}</p>
           </div>
         </div>
