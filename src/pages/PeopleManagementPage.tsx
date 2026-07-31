@@ -18,7 +18,16 @@ function fromPessoa(item: PessoaResponse): FormState {
 
 export function PeopleManagementPage({ tipoPessoa }: Props) {
   const { session } = useAuth(); const [items, setItems] = useState<PessoaResponse[]>([]); const [query, setQuery] = useState(""); const [editing, setEditing] = useState<PessoaResponse | null>(null); const [form, setForm] = useState<FormState>(empty); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [message, setMessage] = useState("");
-  useEffect(() => { if (!session) return; void api.getPessoas(session.token, 0, 500).then((r) => setItems(r.items.filter((item) => item.tipoPessoa === tipoPessoa))).catch((e) => setError(e instanceof Error ? e.message : "Falha ao carregar pessoas.")).finally(() => setLoading(false)); }, [session, tipoPessoa]);
+  useEffect(() => {
+    if (!session) return;
+    void Promise.all([api.getPessoas(session.token, 0, 500), api.getUsuarios(session.token, 0, 500)])
+      .then(([pessoas, usuarios]) => {
+        const pessoaIdsDeUsuarios = new Set(usuarios.items.map((usuario) => usuario.pessoa?.id).filter((id): id is number => Boolean(id)));
+        setItems(pessoas.items.filter((item) => item.tipoPessoa === tipoPessoa && !pessoaIdsDeUsuarios.has(item.id)));
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Falha ao carregar pessoas."))
+      .finally(() => setLoading(false));
+  }, [session, tipoPessoa]);
   const filtered = useMemo(() => items.filter((item) => `${item.nome} ${item.cpf || ""} ${item.cnpj || ""} ${item.razaoSocial || ""}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
   function startEdit(item: PessoaResponse) { setEditing(item); setForm(fromPessoa(item)); setMessage(""); }
   function change(field: keyof FormState, value: string | boolean) { setForm((current) => ({ ...current, [field]: value })); }
