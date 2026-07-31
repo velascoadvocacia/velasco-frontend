@@ -57,6 +57,7 @@ export interface Usuario {
   username: string;
   pessoa: PessoaResumo;
   perfil: PerfilUsuario;
+  oab?: string | null;
   ativo: boolean;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +68,7 @@ export interface UsuarioCreatePayload {
   senha: string;
   pessoaId: number;
   perfil: PerfilUsuario;
+  oab?: string | null;
   ativo?: boolean;
 }
 

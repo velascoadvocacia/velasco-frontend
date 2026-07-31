@@ -282,7 +282,7 @@ export function PartyForm({
               </label>
 
               <label>
-                Profissão
+                Função
                 <input
                   value={values.profissao}
                   onChange={(event) => handleChange("profissao", event.target.value)}
