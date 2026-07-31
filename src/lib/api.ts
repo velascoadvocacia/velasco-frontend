@@ -105,6 +105,20 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
+  updateUsuario: (token: string, usuarioId: number, payload: UsuarioCreatePayload) =>
+    request<Usuario>(`/usuarios/${usuarioId}`, {
+      method: "PUT",
+      token,
+      body: JSON.stringify(payload)
+    }),
+
+  updatePessoa: (token: string, pessoaId: number, payload: PessoaCreatePayload) =>
+    request<PessoaResponse>(`/pessoas/${pessoaId}`, {
+      method: "PUT",
+      token,
+      body: JSON.stringify(payload)
+    }),
+
   getProcessos: (
     token: string,
     params: {

@@ -10,6 +10,8 @@ import { PreviewPage } from "./pages/PreviewPage";
 import { RTComposerPage } from "./pages/RTComposerPage";
 import { RtListPage } from "./pages/RtListPage";
 import { UserRegistrationPage } from "./pages/UserRegistrationPage";
+import { UserManagementPage } from "./pages/UserManagementPage";
+import { PeopleManagementPage } from "./pages/PeopleManagementPage";
 import { UserDashboardPage } from "./pages/UserDashboardPage";
 
 function HomeRedirect() {
@@ -67,6 +69,9 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["ADMIN", "ADVOGADO", "ASSISTENTE"]}><UserManagementPage /></ProtectedRoute>} />
+      <Route path="/reclamantes" element={<ProtectedRoute allowedRoles={["ADMIN", "ADVOGADO", "ASSISTENTE"]}><PeopleManagementPage tipoPessoa="FISICA" /></ProtectedRoute>} />
+      <Route path="/reclamadas" element={<ProtectedRoute allowedRoles={["ADMIN", "ADVOGADO", "ASSISTENTE"]}><PeopleManagementPage tipoPessoa="JURIDICA" /></ProtectedRoute>} />
       <Route
         path="/cadastros-partes"
         element={
