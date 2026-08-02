@@ -80,7 +80,6 @@ interface ComposerState {
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
-  dataProjecaoAviso: string;
   informacoesComplementares: string;
 }
 
@@ -120,7 +119,6 @@ const initialState: ComposerState = {
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
-  dataProjecaoAviso: "",
   informacoesComplementares: ""
 };
 
@@ -170,7 +168,6 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "remuneracao",
     "motivoExtincao",
     "dataExtincao",
-    "dataProjecaoAviso",
     "informacoesComplementares"
   ],
   baixa_ctps: ["dataDemissao"],
@@ -249,8 +246,7 @@ function buildContratoTrabalhoPayload(values: ComposerState): ContratoTrabalhoCr
     dataDemissao: optional(values.dataExtincao) || optional(values.dataDemissao),
     ultimaRemuneracao: parseUltimaRemuneracao(values.remuneracao),
     localPrestacaoServico: optional(values.cidadePrestacao),
-    tipoRescisao: tipoRescisaoFromMotivo(values.motivoExtincao),
-    avisoPrevioProjetadoEm: optional(values.dataProjecaoAviso)
+    tipoRescisao: tipoRescisaoFromMotivo(values.motivoExtincao)
   };
 }
 
@@ -987,11 +983,10 @@ export function RTComposerPage() {
                                         remuneracao: "Última remuneração",
                                         motivoExtincao: "Motivo da extinção do vínculo",
                                         dataExtincao: "Data de extinção do vínculo",
-                                        dataProjecaoAviso: "Data de projeção do aviso prévio",
                                         informacoesComplementares: "Informações complementares"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares"].includes(field);
-                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataProjecaoAviso"].includes(field);
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao"].includes(field);
                                       return (
                                           <label className={field === "informacoesComplementares" ? "field-wide" : undefined} key={field}>
                                             {labels[field]}

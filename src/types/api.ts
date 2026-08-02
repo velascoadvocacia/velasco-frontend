@@ -126,7 +126,6 @@ export interface ContratoTrabalhoResponse {
   dataDemissao?: string | null;
   tipoRescisao?: TipoRescisao | null;
   ultimaRemuneracao?: number | null;
-  avisoPrevioProjetadoEm?: string | null;
   jornadaDescricao?: string | null;
   localPrestacaoServico?: string | null;
 }
