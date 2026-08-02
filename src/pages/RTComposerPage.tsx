@@ -212,6 +212,7 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataExtincao",
     "informacoesComplementares"
   ],
+  baixa_ctps_tutela: ["dataExtincao"],
   baixa_ctps: ["dataDemissao"],
   vinculo_sem_registro: ["dataAdmissao"],
   horas_extras: ["mediaHorasExtras"],
@@ -420,6 +421,7 @@ export function RTComposerPage() {
   const [exportingDocx, setExportingDocx] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [pendingCtpsFiles, setPendingCtpsFiles] = useState<File[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
@@ -429,6 +431,18 @@ export function RTComposerPage() {
     loading: boolean;
     error: string;
   }>>>({});
+  const pendingCtpsPreviews = useMemo(
+      () => pendingCtpsFiles.map((file) => ({
+        file,
+        key: `${file.name}-${file.size}-${file.lastModified}`,
+        url: URL.createObjectURL(file)
+      })),
+      [pendingCtpsFiles]
+  );
+
+  useEffect(() => () => {
+    pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,6 +457,7 @@ export function RTComposerPage() {
         setSelectedBlocks(defaultBlocks);
         setExistingProcesso(null);
         setApiPreviews({});
+        setPendingCtpsFiles([]);
         setSavedMessage("");
       }
 
@@ -693,10 +708,11 @@ export function RTComposerPage() {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
-    if (!session || !processoId) {
-      setError("Salve a RT antes de anexar prints da CTPS.");
+    if (!processoId) {
+      setPendingCtpsFiles((current) => [...current, ...files]);
       return;
     }
+    if (!session) return;
 
     setUploadingAttachments(true);
     setError("");
@@ -736,11 +752,16 @@ export function RTComposerPage() {
     }
   }
 
+  function handlePendingAttachmentRemove(key: string) {
+    setPendingCtpsFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
     setExistingProcesso(null);
     setApiPreviews({});
+    setPendingCtpsFiles([]);
     setSavedMessage("");
   }
 
@@ -828,13 +849,23 @@ export function RTComposerPage() {
       if (!session) throw new Error("Falha ao salvar RT.");
 
       const payload = buildProcessoPayload();
+      let savedProcessoId: number;
 
       if (isEditing && processoId) {
         await api.updateProcesso(session.token, Number(processoId), payload);
+        savedProcessoId = Number(processoId);
         setSavedMessage("RT atualizada com sucesso!");
       } else {
-        await api.createProcesso(session.token, payload);
+        const createdProcesso = await api.createProcesso(session.token, payload);
+        savedProcessoId = createdProcesso.id;
         setSavedMessage("RT salva com sucesso!");
+      }
+
+      if (pendingCtpsFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingCtpsFiles);
+        setPendingCtpsFiles([]);
+        setUploadingAttachments(false);
       }
 
       window.setTimeout(() => {
@@ -842,6 +873,7 @@ export function RTComposerPage() {
         navigate("/rt");
       }, 3000);
     } catch (saveError) {
+      setUploadingAttachments(false);
       const message = saveError instanceof Error ? saveError.message : "Falha ao salvar RT.";
       setError(message);
     } finally {
@@ -1073,17 +1105,23 @@ export function RTComposerPage() {
                                             type="file"
                                             accept="image/jpeg,image/png"
                                             multiple
-                                            disabled={!processoId || uploadingAttachments}
+                                            disabled={uploadingAttachments}
                                             onChange={handleAttachmentUpload}
                                         />
                                       </label>
-                                      {!processoId ? <small>Salve a RT para habilitar o upload dos prints.</small> : null}
-                                      {apiPreviews.baixa_ctps_tutela?.anexos.length ? (
+                                      {!processoId ? <small>Os prints serão enviados ao salvar a RT.</small> : null}
+                                      {apiPreviews.baixa_ctps_tutela?.anexos.length || pendingCtpsPreviews.length ? (
                                           <div className="block-attachment-thumbnails">
-                                            {apiPreviews.baixa_ctps_tutela.anexos.map((anexo) => (
+                                            {(apiPreviews.baixa_ctps_tutela?.anexos || []).map((anexo) => (
                                                 <div className="block-attachment-thumbnail" key={anexo.id}>
                                                   <img src={anexo.url} alt={anexo.nomeOriginal} />
                                                   <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id)}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingCtpsPreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingAttachmentRemove(key)}>×</button>
                                                 </div>
                                             ))}
                                           </div>
