@@ -21,11 +21,6 @@ type BlockId =
     | "dados_reclamante"
     | "qualificacao_reclamada"
     | "contrato_aspectos_gerais"
-    | "contrato_dispensa_sem_justa"
-    | "contrato_dispensa_com_justa"
-    | "contrato_pedido_demissao"
-    | "contrato_rescisao_indireta"
-    | "reversao_justa_causa"
     | "baixa_ctps"
     | "grupo_economico"
     | "vinculo_sem_registro"
@@ -70,9 +65,7 @@ interface ComposerState {
   funcao: string;
   dataAdmissao: string;
   dataDemissao: string;
-  salario: string;
   cidadePrestacao: string;
-  tipoRescisao: TipoRescisao | "";
   descricaoAcidente: string;
   cctPeriodo: string;
   clausulaConvencional: string;
@@ -112,9 +105,7 @@ const initialState: ComposerState = {
   funcao: "",
   dataAdmissao: "",
   dataDemissao: "",
-  salario: "",
   cidadePrestacao: "",
-  tipoRescisao: "",
   descricaoAcidente: "",
   cctPeriodo: "",
   clausulaConvencional: "",
@@ -138,11 +129,6 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
-  { id: "contrato_dispensa_sem_justa", title: "Dispensa sem justa causa", section: "Modalidades contratuais" },
-  { id: "contrato_dispensa_com_justa", title: "Dispensa com justa causa", section: "Modalidades contratuais" },
-  { id: "contrato_pedido_demissao", title: "Pedido de demissão", section: "Modalidades contratuais" },
-  { id: "contrato_rescisao_indireta", title: "Rescisão indireta", section: "Modalidades contratuais" },
-  { id: "reversao_justa_causa", title: "Reversão da justa causa", section: "Modalidades contratuais" },
   { id: "baixa_ctps", title: "Baixa / anotação na CTPS", section: "CTPS e vínculo" },
   { id: "vinculo_sem_registro", title: "Vínculo sem registro", section: "CTPS e vínculo" },
   { id: "danos_nao_anotacao_ctps", title: "Dano moral por não anotação da CTPS", section: "CTPS e vínculo" },
@@ -168,7 +154,6 @@ const defaultBlocks: BlockId[] = [
   "qualificacao_reclamante",
   "qualificacao_reclamada",
   "dados_reclamante",
-  "contrato_dispensa_sem_justa",
   "documentos"
 ];
 
@@ -188,10 +173,6 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataProjecaoAviso",
     "informacoesComplementares"
   ],
-  contrato_dispensa_sem_justa: ["dataAdmissao", "dataDemissao", "salario"],
-  contrato_dispensa_com_justa: ["dataDemissao"],
-  contrato_pedido_demissao: ["dataAdmissao", "dataDemissao"],
-  reversao_justa_causa: ["dataDemissao"],
   baixa_ctps: ["dataDemissao"],
   vinculo_sem_registro: ["dataAdmissao"],
   horas_extras: ["mediaHorasExtras"],
@@ -251,14 +232,25 @@ function parseUltimaRemuneracao(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function tipoRescisaoFromMotivo(motivo: ComposerState["motivoExtincao"]): TipoRescisao | null {
+  const tipos: Partial<Record<NonNullable<ComposerState["motivoExtincao"]>, TipoRescisao>> = {
+    "1": "SEM_JUSTA_CAUSA",
+    "2": "COM_JUSTA_CAUSA",
+    "3": "PEDIDO_DEMISSAO",
+    "4": "RESCISAO_INDIRETA"
+  };
+  return tipos[motivo] || null;
+}
+
 function buildContratoTrabalhoPayload(values: ComposerState): ContratoTrabalhoCreatePayload {
   return {
-    funcaoExercida: optional(values.funcao),
-    dataAdmissao: optional(values.dataAdmissao),
-    dataDemissao: optional(values.dataDemissao),
-    ultimaRemuneracao: parseUltimaRemuneracao(values.salario),
+    funcaoExercida: optional(values.funcaoContrato) || optional(values.funcao),
+    dataAdmissao: optional(values.dataContratacao) || optional(values.dataAdmissao),
+    dataDemissao: optional(values.dataExtincao) || optional(values.dataDemissao),
+    ultimaRemuneracao: parseUltimaRemuneracao(values.remuneracao),
     localPrestacaoServico: optional(values.cidadePrestacao),
-    tipoRescisao: values.tipoRescisao || null
+    tipoRescisao: tipoRescisaoFromMotivo(values.motivoExtincao),
+    avisoPrevioProjetadoEm: optional(values.dataProjecaoAviso)
   };
 }
 
@@ -273,9 +265,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     funcao: contrato?.funcaoExercida ?? "",
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
-    salario: contrato?.ultimaRemuneracao != null ? String(contrato.ultimaRemuneracao) : "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
-    tipoRescisao: contrato?.tipoRescisao ?? "",
     descricaoAcidente: processo.rtDescricaoAcidente ?? "",
     cctPeriodo: processo.rtCctPeriodo ?? "",
     clausulaConvencional: processo.rtClausulaConvencional ?? "",
@@ -330,10 +320,7 @@ function buildPreviewBlocks(
   const defendantNames = defendants.length
       ? defendants.map((item) => personLabel(item)).join(", ")
       : "[reclamada]";
-  const functionName = optional(values.funcao) || claimants[0]?.profissao || "[função]";
-  const admission = values.dataAdmissao ? formatDate(values.dataAdmissao) : "[data de admissão]";
   const dismissal = values.dataDemissao ? formatDate(values.dataDemissao) : "[data de demissão]";
-  const salary = optional(values.salario) || "[salário]";
   const city = optional(values.cidadePrestacao) || "[cidade/local]";
   const accident = optional(values.descricaoAcidente) || "[descrição do acidente]";
   const conventionalPeriod = optional(values.cctPeriodo) || "___";
@@ -344,22 +331,7 @@ function buildPreviewBlocks(
   const accumulatedSalaryB = optional(values.salarioFuncaoAcumulada) || "_____";
   const paidOutside = optional(values.valorPagoPorFora) || "_____";
   const averageExtra = optional(values.mediaHorasExtras) || "_____";
-  const tipoRescisaoTexto: Record<string, string> = {
-    SEM_JUSTA_CAUSA: "dispensa sem justa causa",
-    COM_JUSTA_CAUSA: "dispensa com justa causa",
-    PEDIDO_DEMISSAO: "pedido de demissão",
-    RESCISAO_INDIRETA: "rescisão indireta",
-    ACORDO: "acordo",
-    NAO_APLICAVEL: "não aplicável"
-  };
-  const tipoRescisao = tipoRescisaoTexto[values.tipoRescisao] || "[modalidade de rescisão]";
-
   const contentMap: Partial<Record<BlockId, string>> = {
-    contrato_dispensa_sem_justa: `${claimantName} foi admitido(a) em ${admission} para exercer a função de ${functionName}, percebendo última remuneração de ${salary}. Ao final do pacto laboral, foi dispensado(a) sem justa causa em ${dismissal}, sem receber corretamente as verbas rescisórias. Pelo exposto, requer-se a condenação da ré ao pagamento de saldo salarial, aviso-prévio, 13º proporcional, férias com 1/3, FGTS com multa de 40% e liberação das guias competentes.`,
-    contrato_dispensa_com_justa: `A parte autora teve aplicada justa causa em ${dismissal}. Contudo, a penalidade se mostra inválida diante da ausência de proporcionalidade e de prova robusta. Requer-se a declaração de nulidade da justa causa, com conversão para dispensa sem justa causa e pagamento das verbas correspondentes.`,
-    contrato_pedido_demissao: `${claimantName} formalizou pedido de demissão em ${dismissal}, embora o contexto contratual revele vícios e descumprimentos patronais que impõem análise judicial da modalidade extintiva, com o consequente pagamento das parcelas cabíveis.`,
-    contrato_rescisao_indireta: `O contrato mantido entre ${claimantName} e ${defendantNames} foi rompido por faltas patronais graves, notadamente descumprimentos contratuais reiterados. Requer-se o reconhecimento da rescisão indireta, com condenação ao pagamento de aviso-prévio, férias integrais e proporcionais + 1/3, 13º salário proporcional e FGTS com multa de 40%.`,
-    reversao_justa_causa: `A justa causa aplicada é nula e desproporcional. Requer-se, principal ou sucessivamente, sua reversão para dispensa sem justa causa, com o pagamento integral das verbas rescisórias e a liberação das guias de FGTS e seguro-desemprego.`,
     baixa_ctps: `Conquanto a parte autora tenha sido dispensada, não houve a devida baixa ou retificação da CTPS. Requer-se tutela para que a ré promova a anotação correta do contrato, considerando como data de término ${dismissal}, sob pena de multa diária e, em caso de descumprimento, a realização das anotações pela Secretaria da Vara.`,
     vinculo_sem_registro: `A prestação de serviços de ${claimantName} teve início antes do registro formal em CTPS, exercendo as mesmas funções e sob a mesma subordinação. Requer-se o reconhecimento do vínculo no período sem registro, com retificação da CTPS e pagamento dos consectários legais correspondentes.`,
     danos_nao_anotacao_ctps: `A ausência de anotação correta da CTPS sonegou direitos elementares à parte autora, atingindo sua dignidade e segurança social. Requer-se a condenação da parte ré ao pagamento de indenização por danos morais, nos termos do art. 5º, X, da Constituição Federal e dos arts. 186 e 927 do Código Civil.`,
@@ -959,19 +931,6 @@ export function RTComposerPage() {
                         <input value={values.cidadePrestacao} onChange={(event) => handleChange("cidadePrestacao", event.target.value)} />
                       </label>
 
-                      <label>
-                        Modalidade de rescisão
-                        <select value={values.tipoRescisao} onChange={(event) => handleChange("tipoRescisao", event.target.value)}>
-                          <option value="">Selecione</option>
-                          <option value="SEM_JUSTA_CAUSA">Dispensa sem justa causa</option>
-                          <option value="COM_JUSTA_CAUSA">Dispensa com justa causa</option>
-                          <option value="PEDIDO_DEMISSAO">Pedido de demissão</option>
-                          <option value="RESCISAO_INDIRETA">Rescisão indireta</option>
-                          <option value="ACORDO">Acordo</option>
-                          <option value="NAO_APLICAVEL">Não aplicável</option>
-                        </select>
-                      </label>
-
                     </div>
                   </div>
                 </SectionCard>
@@ -994,7 +953,7 @@ export function RTComposerPage() {
                                       onChange={() => toggleBlock(block.id)}
                                   />
                                   <div>
-                                    <strong>{blockTitle(block, values)}</strong>
+                                    <strong>{block.title}</strong>
                                   </div>
                                 </label>
                                 {block.id === "contrato_aspectos_gerais" ? (
@@ -1014,7 +973,6 @@ export function RTComposerPage() {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
                                         dataDemissao: "Data de demissão",
-                                        salario: "Última remuneração",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
                                         clausulaConvencional: "Cláusula convencional",
@@ -1035,7 +993,7 @@ export function RTComposerPage() {
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataProjecaoAviso"].includes(field);
                                       return (
-                                          <label key={field}>
+                                          <label className={field === "informacoesComplementares" ? "field-wide" : undefined} key={field}>
                                             {labels[field]}
                                             {multiline ? (
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
