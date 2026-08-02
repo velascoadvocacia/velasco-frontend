@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { SectionCard } from "../components/SectionCard";
@@ -12,6 +13,7 @@ import type {
   PessoaResponse,
   Processo,
   ProcessoCreatePayload,
+  ProcessoAnexoResponse,
   TipoRescisao,
   Usuario
 } from "../types/api";
@@ -21,6 +23,7 @@ type BlockId =
     | "dados_reclamante"
     | "qualificacao_reclamada"
     | "contrato_aspectos_gerais"
+    | "baixa_ctps_tutela"
     | "baixa_ctps"
     | "grupo_economico"
     | "vinculo_sem_registro"
@@ -45,7 +48,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "qualificacao_reclamante",
   "dados_reclamante",
   "qualificacao_reclamada",
-  "contrato_aspectos_gerais"
+  "contrato_aspectos_gerais",
+  "baixa_ctps_tutela"
 ];
 
 const contractExtinctionOptions = [
@@ -93,6 +97,43 @@ interface PreviewBlock {
   id: BlockId;
   title: string;
   content: string;
+  anexos: ProcessoAnexoResponse[];
+}
+
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("__") && part.endsWith("__")) {
+      return <u key={`${part}-${index}`}>{part.slice(2, -2)}</u>;
+    }
+    return <Fragment key={`${part}-${index}`}>{part}</Fragment>;
+  });
+}
+
+function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[]) {
+  const paragraphs = content.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
+  return paragraphs.map((paragraph, index) => (
+    <Fragment key={`${paragraph}-${index}`}>
+      <p>
+        {paragraph.split("\n").map((line, lineIndex) => (
+          <Fragment key={`${line}-${lineIndex}`}>
+            {lineIndex > 0 ? <br /> : null}
+            {renderInlineMarkdown(line)}
+          </Fragment>
+        ))}
+      </p>
+      {index === 0 && anexos.length > 0 ? (
+        <div className="rt-preview-attachments">
+          {anexos.map((anexo) => (
+            <img key={anexo.id} src={anexo.url} alt={anexo.nomeOriginal} />
+          ))}
+        </div>
+      ) : null}
+    </Fragment>
+  ));
 }
 
 const initialState: ComposerState = {
@@ -127,6 +168,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
+  { id: "baixa_ctps_tutela", title: "3. Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
   { id: "baixa_ctps", title: "Baixa / anotação na CTPS", section: "CTPS e vínculo" },
   { id: "vinculo_sem_registro", title: "Vínculo sem registro", section: "CTPS e vínculo" },
   { id: "danos_nao_anotacao_ctps", title: "Dano moral por não anotação da CTPS", section: "CTPS e vínculo" },
@@ -308,7 +350,8 @@ function buildPreviewBlocks(
     values: ComposerState,
     selectedBlocks: BlockId[],
     apiPreviewTexts: Partial<Record<BlockId, string>>,
-    apiPreviewTitles: Partial<Record<BlockId, string>>
+    apiPreviewTitles: Partial<Record<BlockId, string>>,
+    apiPreviewAttachments: Partial<Record<BlockId, ProcessoAnexoResponse[]>>
 ): PreviewBlock[] {
   const claimantName = claimants.length
       ? claimants.map((item) => item.nome).join(", ")
@@ -356,7 +399,8 @@ function buildPreviewBlocks(
       title: id === "contrato_aspectos_gerais"
         ? apiPreviewTitles[id] || blockTitle(definition, values)
         : definition.title,
-      content: BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || ""
+      content: BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || "",
+      anexos: apiPreviewAttachments[id] || []
     };
   });
 }
@@ -375,11 +419,13 @@ export function RTComposerPage() {
   const [error, setError] = useState("");
   const [exportingDocx, setExportingDocx] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
     text: string;
     title: string;
+    anexos: ProcessoAnexoResponse[];
     loading: boolean;
     error: string;
   }>>>({});
@@ -500,6 +546,7 @@ export function RTComposerPage() {
         setApiPreviews(Object.fromEntries(selectedApiBlocks.map((id) => [id, {
           text: "Selecione as partes e advogados para gerar a qualificação.",
           title: "",
+          anexos: [],
           loading: false,
           error: ""
       }])));
@@ -512,6 +559,7 @@ export function RTComposerPage() {
       ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
         text: current[id]?.text || "",
         title: current[id]?.title || "",
+        anexos: current[id]?.anexos || [],
         loading: true,
         error: ""
       }]))
@@ -535,6 +583,7 @@ export function RTComposerPage() {
               return [id, {
                 text: block?.texto || "Texto de qualificação não retornado pelo backend.",
                 title: block?.titulo || "",
+                anexos: block?.anexos || [],
                 loading: false,
                 error: ""
               }];
@@ -548,6 +597,7 @@ export function RTComposerPage() {
             ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
               text: "",
               title: "",
+              anexos: current[id]?.anexos || [],
               loading: false,
               error
             }]))
@@ -571,9 +621,14 @@ export function RTComposerPage() {
     return titles;
   }, {});
 
+  const apiPreviewAttachments = selectedApiBlocks.reduce<Partial<Record<BlockId, ProcessoAnexoResponse[]>>>((attachments, id) => {
+    attachments[id] = apiPreviews[id]?.anexos || [];
+    return attachments;
+  }, {});
+
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
@@ -632,6 +687,53 @@ export function RTComposerPage() {
             ? current.filter((item) => item !== blockId)
             : [...current, blockId]
     );
+  }
+
+  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    if (!session || !processoId) {
+      setError("Salve a RT antes de anexar prints da CTPS.");
+      return;
+    }
+
+    setUploadingAttachments(true);
+    setError("");
+    try {
+      const uploaded = await api.uploadProcessoAnexos(session.token, Number(processoId), files);
+      setApiPreviews((current) => ({
+        ...current,
+        baixa_ctps_tutela: {
+          text: current.baixa_ctps_tutela?.text || "",
+          title: current.baixa_ctps_tutela?.title || "",
+          anexos: [...(current.baixa_ctps_tutela?.anexos || []), ...uploaded],
+          loading: false,
+          error: ""
+        }
+      }));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Falha ao anexar os prints da CTPS.");
+    } finally {
+      setUploadingAttachments(false);
+    }
+  }
+
+  async function handleAttachmentRemove(anexoId: number) {
+    if (!session || !processoId) return;
+    setError("");
+    try {
+      await api.deleteProcessoAnexo(session.token, Number(processoId), anexoId);
+      setApiPreviews((current) => ({
+        ...current,
+        baixa_ctps_tutela: current.baixa_ctps_tutela ? {
+          ...current.baixa_ctps_tutela,
+          anexos: current.baixa_ctps_tutela.anexos.filter((anexo) => anexo.id !== anexoId)
+        } : current.baixa_ctps_tutela
+      }));
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Falha ao remover o anexo.");
+    }
   }
 
   function clearDraft() {
@@ -963,6 +1065,31 @@ export function RTComposerPage() {
                                       </select>
                                     </label>
                                 ) : null}
+                                {block.id === "baixa_ctps_tutela" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar print da CTPS"}</span>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png"
+                                            multiple
+                                            disabled={!processoId || uploadingAttachments}
+                                            onChange={handleAttachmentUpload}
+                                        />
+                                      </label>
+                                      {!processoId ? <small>Salve a RT para habilitar o upload dos prints.</small> : null}
+                                      {apiPreviews.baixa_ctps_tutela?.anexos.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {apiPreviews.baixa_ctps_tutela.anexos.map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   <div className="form-grid block-variable-fields">
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) => field !== "motivoExtincao").map((field) => {
@@ -1025,7 +1152,7 @@ export function RTComposerPage() {
                   {previewBlocks.map((block) => (
                       <section className="rt-preview-block" key={block.id}>
                         <h4>{block.title}</h4>
-                        <p>{block.content}</p>
+                        {renderBlockContent(block.content, block.anexos)}
                       </section>
                   ))}
                 </article>

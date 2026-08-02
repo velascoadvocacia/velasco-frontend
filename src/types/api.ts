@@ -91,11 +91,23 @@ export interface RtPreviewBlock {
   id: string;
   titulo: string;
   texto: string;
+  anexos?: ProcessoAnexoResponse[];
 }
 
 export interface RtPreviewResponse {
   processoId?: number | null;
   blocos: RtPreviewBlock[];
+}
+
+export interface ProcessoAnexoResponse {
+  id: number;
+  processoId: number;
+  blocoId: string;
+  nomeOriginal: string;
+  contentType: string;
+  tamanhoBytes: number;
+  url: string;
+  dataUpload: string;
 }
 
 export interface AuthLoginResponse {

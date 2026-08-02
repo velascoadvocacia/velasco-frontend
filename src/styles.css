@@ -546,6 +546,100 @@ textarea {
   resize: vertical;
 }
 
+.block-attachment-picker {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0 2rem 0.75rem;
+}
+
+.attachment-upload-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0.65rem 0.9rem;
+  border: 0.5px solid #d0d0cc;
+  border-radius: 0.75rem;
+  background: #f7f7f5;
+  color: #2f2f2f;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attachment-upload-button:hover {
+  background: #fff;
+  border-color: #2f2f2f;
+}
+
+.attachment-upload-button:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.attachment-upload-button input {
+  display: none;
+}
+
+.block-attachment-picker small {
+  color: #888;
+  font-size: 0.75rem;
+}
+
+.block-attachment-thumbnails,
+.rt-preview-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.block-attachment-thumbnail {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+}
+
+.block-attachment-thumbnail img,
+.rt-preview-attachments img {
+  display: block;
+  object-fit: cover;
+  border: 0.5px solid #d0d0cc;
+  border-radius: 0.55rem;
+  background: #f7f7f5;
+}
+
+.block-attachment-thumbnail img {
+  width: 100%;
+  height: 100%;
+}
+
+.block-attachment-thumbnail button {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #2f2f2f;
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rt-preview-attachments {
+  margin: 0.85rem 0 1rem;
+}
+
+.rt-preview-attachments img {
+  width: 7rem;
+  height: 7rem;
+}
+
 /* ─── Entity cards ───────────────────────────────────── */
 
 .entity-picker,

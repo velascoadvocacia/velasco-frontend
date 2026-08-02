@@ -11,7 +11,8 @@ import type {
   UsuarioCreatePayload,
   UsuarioUpdatePayload,
   RtPreviewRequest,
-  RtPreviewResponse
+  RtPreviewResponse,
+  ProcessoAnexoResponse
 } from "../types/api";
 import { API_BASE_URL } from "./constants";
 
@@ -30,7 +31,9 @@ interface RequestOptions extends RequestInit {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
 
   if (options.token) {
     headers.set("Authorization", `Bearer ${options.token}`);
@@ -156,6 +159,22 @@ export const api = {
       method: "POST",
       token,
       body: JSON.stringify(payload)
+    }),
+
+  uploadProcessoAnexos: (token: string, processoId: number, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("arquivos", file));
+    return request<ProcessoAnexoResponse[]>(`/processos/${processoId}/anexos`, {
+      method: "POST",
+      token,
+      body: formData
+    });
+  },
+
+  deleteProcessoAnexo: (token: string, processoId: number, anexoId: number) =>
+    request<void>(`/processos/${processoId}/anexos/${anexoId}`, {
+      method: "DELETE",
+      token
     }),
 
   getMovimentacoes: (token: string, page = 0, size = 20, processoId?: number) =>
