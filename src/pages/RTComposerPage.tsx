@@ -357,7 +357,7 @@ async function getExportCtpsFiles(blocks: PreviewBlock[], pendingFiles: File[]) 
 
 export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: string, token: string, imageFiles: File[]) {
   const formData = new FormData();
-  formData.append("documento", new Blob([JSON.stringify({
+  formData.append("payload", JSON.stringify({
     claimantName,
     blocks: previewBlocks.map((block) => ({
       title: block.title,
@@ -368,8 +368,10 @@ export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: 
         nomeOriginal: anexo.nomeOriginal
       }))
     }))
-  })], { type: "application/json" }));
-  imageFiles.forEach((file) => formData.append("arquivosCtps", file));
+  }));
+  imageFiles.forEach((file, index) => {
+    formData.append("anexo_baixa_ctps_tutela_" + index, file, file.name);
+  });
 
   const response = await fetch(`${API_BASE_URL}/rt/export`, {
     method: "POST",
