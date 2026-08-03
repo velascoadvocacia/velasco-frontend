@@ -85,6 +85,7 @@ interface ComposerState {
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
   informacoesComplementares: string;
+  informacoesComplementaresCtps: string;
 }
 
 interface BlockDefinition {
@@ -182,7 +183,8 @@ const initialState: ComposerState = {
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
-  informacoesComplementares: ""
+  informacoesComplementares: "",
+  informacoesComplementaresCtps: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -234,7 +236,7 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataExtincao",
     "informacoesComplementares"
   ],
-  baixa_ctps_tutela: ["dataExtincao"],
+  baixa_ctps_tutela: ["dataExtincao", "informacoesComplementaresCtps"],
   baixa_ctps: ["dataDemissao"],
   vinculo_sem_registro: ["dataAdmissao"],
   horas_extras: ["mediaHorasExtras"],
@@ -339,25 +341,42 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
   };
 }
 
-export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: string, token: string) {
+async function getExportCtpsFiles(blocks: PreviewBlock[], pendingFiles: File[]) {
+  const files = [...pendingFiles];
+  const ctpsBlock = blocks.find((block) => block.id === "baixa_ctps_tutela");
+  for (const anexo of ctpsBlock?.anexos || []) {
+    const response = await fetch(anexo.url);
+    if (!response.ok) {
+      throw new Error(`Não foi possível baixar o anexo ${anexo.nomeOriginal} para exportação.`);
+    }
+    const blob = await response.blob();
+    files.push(new File([blob], anexo.nomeOriginal, { type: anexo.contentType || blob.type }));
+  }
+  return files;
+}
+
+export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: string, token: string, imageFiles: File[]) {
+  const formData = new FormData();
+  formData.append("documento", new Blob([JSON.stringify({
+    claimantName,
+    blocks: previewBlocks.map((block) => ({
+      title: block.title,
+      content: block.content,
+      anexos: block.anexos.map((anexo) => ({
+        url: anexo.url,
+        contentType: anexo.contentType,
+        nomeOriginal: anexo.nomeOriginal
+      }))
+    }))
+  })], { type: "application/json" }));
+  imageFiles.forEach((file) => formData.append("arquivosCtps", file));
+
   const response = await fetch(`${API_BASE_URL}/rt/export`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
       "Authorization": `Bearer ${token}`
     },
-    body: JSON.stringify({
-      claimantName,
-      blocks: previewBlocks.map((block) => ({
-        title: block.title,
-        content: block.content,
-        anexos: block.anexos.map((anexo) => ({
-          url: anexo.url,
-          contentType: anexo.contentType,
-          nomeOriginal: anexo.nomeOriginal
-        }))
-      }))
-    })
+    body: formData
   });
 
   if (!response.ok) {
@@ -937,7 +956,8 @@ export function RTComposerPage() {
           } : block;
         });
       }
-      await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token);
+      const imageFiles = await getExportCtpsFiles(blocksForExport, pendingCtpsFiles);
+      await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token, imageFiles);
     } catch (exportError) {
       const message = exportError instanceof Error ? exportError.message : "Falha ao exportar o documento.";
       setError(message);
@@ -1198,12 +1218,13 @@ export function RTComposerPage() {
                                         remuneracao: "Última remuneração",
                                         motivoExtincao: "Motivo da extinção do vínculo",
                                         dataExtincao: "Data de extinção do vínculo",
-                                        informacoesComplementares: "Informações complementares"
+                                        informacoesComplementares: "Informações complementares",
+                                        informacoesComplementaresCtps: "Informações complementares"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao"].includes(field);
                                       return (
-                                          <label className={field === "informacoesComplementares" ? "field-wide" : undefined} key={field}>
+                                          <label className={["informacoesComplementares", "informacoesComplementaresCtps"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {labels[field]}
                                             {multiline ? (
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
