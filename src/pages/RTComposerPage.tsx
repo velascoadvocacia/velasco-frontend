@@ -348,7 +348,15 @@ export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: 
     },
     body: JSON.stringify({
       claimantName,
-      blocks: previewBlocks
+      blocks: previewBlocks.map((block) => ({
+        title: block.title,
+        content: block.content,
+        anexos: block.anexos.map((anexo) => ({
+          url: anexo.url,
+          contentType: anexo.contentType,
+          nomeOriginal: anexo.nomeOriginal
+        }))
+      }))
     })
   });
 
