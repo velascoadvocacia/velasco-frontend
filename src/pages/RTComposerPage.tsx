@@ -113,7 +113,29 @@ function renderInlineMarkdown(text: string) {
   });
 }
 
-function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[]) {
+function normalizePreviewAttachments(value: unknown): ProcessoAnexoResponse[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) => {
+    if (typeof item === "string") {
+      return [{
+        id: index,
+        processoId: 0,
+        blocoId: "baixa_ctps_tutela",
+        nomeOriginal: `Print da CTPS ${index + 1}`,
+        contentType: "image/*",
+        tamanhoBytes: 0,
+        url: item,
+        dataUpload: ""
+      }];
+    }
+    if (item && typeof item === "object" && "url" in item && typeof item.url === "string") {
+      return [item as ProcessoAnexoResponse];
+    }
+    return [];
+  });
+}
+
+function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], renderAttachments: boolean) {
   const paragraphs = content.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
   return paragraphs.map((paragraph, index) => (
     <Fragment key={`${paragraph}-${index}`}>
@@ -125,7 +147,7 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[]) {
           </Fragment>
         ))}
       </p>
-      {index === 0 && anexos.length > 0 ? (
+      {renderAttachments && index === 0 && anexos.length > 0 ? (
         <div className="rt-preview-attachments">
           {anexos.map((anexo) => (
             <img key={anexo.id} src={anexo.url} alt={anexo.nomeOriginal} />
@@ -598,7 +620,7 @@ export function RTComposerPage() {
               return [id, {
                 text: block?.texto || "Texto de qualificação não retornado pelo backend.",
                 title: block?.titulo || "",
-                anexos: block?.anexos || [],
+                anexos: normalizePreviewAttachments(block?.anexos),
                 loading: false,
                 error: ""
               }];
@@ -1190,7 +1212,7 @@ export function RTComposerPage() {
                   {previewBlocks.map((block) => (
                       <section className="rt-preview-block" key={block.id}>
                         <h4>{block.title}</h4>
-                        {renderBlockContent(block.content, block.anexos)}
+                        {renderBlockContent(block.content, block.anexos, block.id === "baixa_ctps_tutela")}
                       </section>
                   ))}
                 </article>
