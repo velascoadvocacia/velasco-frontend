@@ -917,7 +917,27 @@ export function RTComposerPage() {
 
     try {
       if (!session) throw new Error("Falha ao exportar");
-      await exportToDocx(previewBlocks, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token);
+      let blocksForExport = previewBlocks;
+      if (processoId && selectedApiBlocks.length) {
+        const latestPreview = await api.previewRT(session.token, {
+          processoId: Number(processoId),
+          reclamantesIds: values.claimantIds.map(Number),
+          reclamadasIds: values.defendantIds.map(Number),
+          advogadosIds: values.advogadoIds.map(Number),
+          blocosSelecionados: selectedApiBlocks,
+          dadosVariaveis: buildVariablePayload(values, selectedApiBlocks)
+        });
+        blocksForExport = previewBlocks.map((block) => {
+          const latestBlock = latestPreview.blocos.find((item) => item.id === block.id);
+          return latestBlock ? {
+            ...block,
+            title: latestBlock.titulo,
+            content: latestBlock.texto,
+            anexos: normalizePreviewAttachments(latestBlock.anexos)
+          } : block;
+        });
+      }
+      await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token);
     } catch (exportError) {
       const message = exportError instanceof Error ? exportError.message : "Falha ao exportar o documento.";
       setError(message);
