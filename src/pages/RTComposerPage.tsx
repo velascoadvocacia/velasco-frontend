@@ -194,34 +194,14 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
-  { id: "baixa_ctps_tutela", title: "3. Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
-  { id: "baixa_ctps", title: "Baixa / anotação na CTPS", section: "CTPS e vínculo" },
-  { id: "vinculo_sem_registro", title: "Vínculo sem registro", section: "CTPS e vínculo" },
-  { id: "danos_nao_anotacao_ctps", title: "Dano moral por não anotação da CTPS", section: "CTPS e vínculo" },
-  { id: "grupo_economico", title: "Grupo econômico", section: "Responsabilidade" },
+  { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
-  { id: "horas_extras", title: "Horas extras", section: "Jornada" },
-  { id: "intervalo", title: "Intervalo intrajornada", section: "Jornada" },
-  { id: "fgts", title: "Diferenças de FGTS", section: "Verbas e reflexos" },
-  { id: "multa_fgts_40", title: "Multa de 40% do FGTS", section: "Verbas e reflexos" },
-  { id: "multas_467_477", title: "Multas dos arts. 467 e 477", section: "Verbas e reflexos" },
-  { id: "danos_verbas_rescisorias", title: "Dano moral por verbas rescisórias", section: "Verbas e reflexos" },
-  { id: "multa_convencional", title: "Multa convencional", section: "Normas coletivas" },
-  { id: "acumulo_funcao", title: "Acúmulo de função", section: "Diferenças salariais" },
-  { id: "pagamento_por_fora", title: "Pagamento por fora", section: "Diferenças salariais" },
-  { id: "adicional_transferencia", title: "Adicional de transferência", section: "Diferenças salariais" },
-  { id: "periculosidade", title: "Adicional de periculosidade", section: "Adicionais" },
-  { id: "acidente_trabalho", title: "Acidente de trabalho", section: "Acidente / CAT" },
-  { id: "emissao_cat", title: "Obrigatoriedade de emissão da CAT", section: "Acidente / CAT" },
-  { id: "danos_nao_emissao_cat", title: "Dano moral por não emissão da CAT", section: "Acidente / CAT" },
-  { id: "documentos", title: "Apresentação de documentos", section: "Pedidos finais" }
 ];
 
 const defaultBlocks: BlockId[] = [
   "qualificacao_reclamante",
   "qualificacao_reclamada",
-  "dados_reclamante",
-  "documentos"
+  "dados_reclamante"
 ];
 
 function orderSelectedBlocks(selectedBlocks: BlockId[]) {
@@ -239,15 +219,7 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataExtincao",
     "informacoesComplementares"
   ],
-  baixa_ctps_tutela: ["dataExtincao", "informacoesComplementaresCtps"],
-  baixa_ctps: ["dataDemissao"],
-  vinculo_sem_registro: ["dataAdmissao"],
-  horas_extras: ["mediaHorasExtras"],
-  multa_convencional: ["cctPeriodo", "clausulaConvencional", "assuntoClausula", "redacaoClausula"],
-  acumulo_funcao: ["salarioFuncaoOriginal", "salarioFuncaoAcumulada"],
-  pagamento_por_fora: ["valorPagoPorFora"],
-  acidente_trabalho: ["descricaoAcidente"],
-  documentos: ["mediaHorasExtras"]
+  baixa_ctps_tutela: ["dataExtincao", "informacoesComplementaresCtps"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -1115,27 +1087,6 @@ export function RTComposerPage() {
                             </button>
                           </div>
                       ))}
-                    </div>
-                  </div>
-                </SectionCard>
-
-                {/* ── Dados gerais do contrato/cadastro ── */}
-                <SectionCard
-                    title="Dados gerais do contrato"
-                    description="Dados do cadastro/contrato usados pelos blocos selecionados."
-                >
-                  <div className="party-form">
-                    <div className="form-grid">
-                      <label>
-                        Função
-                        <input value={values.funcao} onChange={(event) => handleChange("funcao", event.target.value)} />
-                      </label>
-
-                      <label>
-                        Cidade/local da prestação
-                        <input value={values.cidadePrestacao} onChange={(event) => handleChange("cidadePrestacao", event.target.value)} />
-                      </label>
-
                     </div>
                   </div>
                 </SectionCard>
