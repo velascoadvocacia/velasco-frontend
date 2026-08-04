@@ -161,9 +161,10 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
-  uploadProcessoAnexos: (token: string, processoId: number, files: File[]) => {
+  uploadProcessoAnexos: (token: string, processoId: number, files: File[], blocoId = "baixa_ctps_tutela") => {
     const formData = new FormData();
     files.forEach((file) => formData.append("arquivos", file));
+    formData.append("blocoId", blocoId);
     return request<ProcessoAnexoResponse[]>(`/processos/${processoId}/anexos`, {
       method: "POST",
       token,
@@ -171,8 +172,8 @@ export const api = {
     });
   },
 
-  deleteProcessoAnexo: (token: string, processoId: number, anexoId: number) =>
-    request<void>(`/processos/${processoId}/anexos/${anexoId}`, {
+  deleteProcessoAnexo: (token: string, processoId: number, anexoId: number, blocoId = "baixa_ctps_tutela") =>
+    request<void>(`/processos/${processoId}/anexos/${anexoId}?blocoId=${encodeURIComponent(blocoId)}`, {
       method: "DELETE",
       token
     }),

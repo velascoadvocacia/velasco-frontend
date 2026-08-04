@@ -25,6 +25,7 @@ type BlockId =
     | "contrato_aspectos_gerais"
     | "baixa_ctps_tutela"
     | "baixa_ctps"
+    | "responsabilidade_solidaria_grupo_economico"
     | "legitimidade_passiva_socios"
     | "grupo_economico"
     | "vinculo_sem_registro"
@@ -51,6 +52,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "qualificacao_reclamada",
   "contrato_aspectos_gerais",
   "baixa_ctps_tutela",
+  "responsabilidade_solidaria_grupo_economico",
   "legitimidade_passiva_socios"
 ];
 
@@ -88,6 +90,7 @@ interface ComposerState {
   dataExtincao: string;
   informacoesComplementares: string;
   informacoesComplementaresCtps: string;
+  descricaoAtividadePrincipal: string;
 }
 
 interface BlockDefinition {
@@ -186,7 +189,8 @@ const initialState: ComposerState = {
   motivoExtincao: "",
   dataExtincao: "",
   informacoesComplementares: "",
-  informacoesComplementaresCtps: ""
+  informacoesComplementaresCtps: "",
+  descricaoAtividadePrincipal: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -195,6 +199,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
   { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
+  { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
 ];
 
@@ -219,7 +224,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataExtincao",
     "informacoesComplementares"
   ],
-  baixa_ctps_tutela: ["dataExtincao", "informacoesComplementaresCtps"]
+  baixa_ctps_tutela: ["dataExtincao", "informacoesComplementaresCtps"],
+  responsabilidade_solidaria_grupo_economico: ["descricaoAtividadePrincipal"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -316,21 +322,22 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
   };
 }
 
-async function getExportCtpsFiles(blocks: PreviewBlock[], pendingFiles: File[]) {
-  const files = [...pendingFiles];
-  const ctpsBlock = blocks.find((block) => block.id === "baixa_ctps_tutela");
-  for (const anexo of ctpsBlock?.anexos || []) {
-    const response = await fetch(anexo.url);
-    if (!response.ok) {
-      throw new Error(`Não foi possível baixar o anexo ${anexo.nomeOriginal} para exportação.`);
+async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: Partial<Record<BlockId, File[]>>) {
+  const filesByBlock: Partial<Record<BlockId, File[]>> = {};
+  for (const block of blocks) {
+    if (!block.anexos.length && !pendingFilesByBlock[block.id]?.length) continue;
+    filesByBlock[block.id] = [...(pendingFilesByBlock[block.id] || [])];
+    for (const anexo of block.anexos) {
+      const response = await fetch(anexo.url);
+      if (!response.ok) throw new Error(`Não foi possível baixar o anexo ${anexo.nomeOriginal} para exportação.`);
+      const blob = await response.blob();
+      filesByBlock[block.id]!.push(new File([blob], anexo.nomeOriginal, { type: anexo.contentType || blob.type }));
     }
-    const blob = await response.blob();
-    files.push(new File([blob], anexo.nomeOriginal, { type: anexo.contentType || blob.type }));
   }
-  return files;
+  return filesByBlock;
 }
 
-export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: string, token: string, imageFiles: File[]) {
+export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: string, token: string, imageFilesByBlock: Partial<Record<BlockId, File[]>>) {
   const formData = new FormData();
   formData.append("payload", JSON.stringify({
     claimantName,
@@ -344,8 +351,8 @@ export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: 
       }))
     }))
   }));
-  imageFiles.forEach((file, index) => {
-    formData.append("anexo_baixa_ctps_tutela_" + index, file, file.name);
+  Object.entries(imageFilesByBlock).forEach(([blockId, files]) => {
+    files?.forEach((file, index) => formData.append(`anexo_${blockId}_${index}`, file, file.name));
   });
 
   const response = await fetch(`${API_BASE_URL}/rt/export`, {
@@ -448,6 +455,7 @@ export function RTComposerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [pendingCtpsFiles, setPendingCtpsFiles] = useState<File[]>([]);
+  const [pendingResponsabilidadeFiles, setPendingResponsabilidadeFiles] = useState<File[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
@@ -465,10 +473,19 @@ export function RTComposerPage() {
       })),
       [pendingCtpsFiles]
   );
+  const pendingResponsabilidadePreviews = useMemo(
+      () => pendingResponsabilidadeFiles.map((file) => ({
+        file,
+        key: `${file.name}-${file.size}-${file.lastModified}`,
+        url: URL.createObjectURL(file)
+      })),
+      [pendingResponsabilidadeFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews]);
+    pendingResponsabilidadePreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -484,6 +501,7 @@ export function RTComposerPage() {
         setExistingProcesso(null);
         setApiPreviews({});
         setPendingCtpsFiles([]);
+        setPendingResponsabilidadeFiles([]);
         setSavedMessage("");
       }
 
@@ -730,12 +748,16 @@ export function RTComposerPage() {
     );
   }
 
-  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>) {
+  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico") {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
     if (!processoId) {
-      setPendingCtpsFiles((current) => [...current, ...files]);
+      if (blockId === "baixa_ctps_tutela") {
+        setPendingCtpsFiles((current) => [...current, ...files]);
+      } else {
+        setPendingResponsabilidadeFiles((current) => [...current, ...files]);
+      }
       return;
     }
     if (!session) return;
@@ -743,13 +765,13 @@ export function RTComposerPage() {
     setUploadingAttachments(true);
     setError("");
     try {
-      const uploaded = await api.uploadProcessoAnexos(session.token, Number(processoId), files);
+      const uploaded = await api.uploadProcessoAnexos(session.token, Number(processoId), files, blockId);
       setApiPreviews((current) => ({
         ...current,
-        baixa_ctps_tutela: {
-          text: current.baixa_ctps_tutela?.text || "",
-          title: current.baixa_ctps_tutela?.title || "",
-          anexos: [...(current.baixa_ctps_tutela?.anexos || []), ...uploaded],
+        [blockId]: {
+          text: current[blockId]?.text || "",
+          title: current[blockId]?.title || "",
+          anexos: [...(current[blockId]?.anexos || []), ...uploaded],
           loading: false,
           error: ""
         }
@@ -761,17 +783,17 @@ export function RTComposerPage() {
     }
   }
 
-  async function handleAttachmentRemove(anexoId: number) {
+  async function handleAttachmentRemove(anexoId: number, blockId: "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico") {
     if (!session || !processoId) return;
     setError("");
     try {
-      await api.deleteProcessoAnexo(session.token, Number(processoId), anexoId);
+      await api.deleteProcessoAnexo(session.token, Number(processoId), anexoId, blockId);
       setApiPreviews((current) => ({
         ...current,
-        baixa_ctps_tutela: current.baixa_ctps_tutela ? {
-          ...current.baixa_ctps_tutela,
-          anexos: current.baixa_ctps_tutela.anexos.filter((anexo) => anexo.id !== anexoId)
-        } : current.baixa_ctps_tutela
+        [blockId]: current[blockId] ? {
+          ...current[blockId],
+          anexos: current[blockId]!.anexos.filter((anexo) => anexo.id !== anexoId)
+        } : current[blockId]
       }));
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "Falha ao remover o anexo.");
@@ -782,12 +804,17 @@ export function RTComposerPage() {
     setPendingCtpsFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingResponsabilidadeRemove(key: string) {
+    setPendingResponsabilidadeFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
     setExistingProcesso(null);
     setApiPreviews({});
     setPendingCtpsFiles([]);
+    setPendingResponsabilidadeFiles([]);
     setSavedMessage("");
   }
 
@@ -891,8 +918,13 @@ export function RTComposerPage() {
         setUploadingAttachments(true);
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingCtpsFiles);
         setPendingCtpsFiles([]);
-        setUploadingAttachments(false);
       }
+      if (pendingResponsabilidadeFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingResponsabilidadeFiles, "responsabilidade_solidaria_grupo_economico");
+        setPendingResponsabilidadeFiles([]);
+      }
+      setUploadingAttachments(false);
 
       window.setTimeout(() => {
         clearDraft();
@@ -933,8 +965,11 @@ export function RTComposerPage() {
           } : block;
         });
       }
-      const imageFiles = await getExportCtpsFiles(blocksForExport, pendingCtpsFiles);
-      await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token, imageFiles);
+      const imageFilesByBlock = await getExportImageFiles(blocksForExport, {
+        baixa_ctps_tutela: pendingCtpsFiles,
+        responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles
+      });
+      await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token, imageFilesByBlock);
     } catch (exportError) {
       const message = exportError instanceof Error ? exportError.message : "Falha ao exportar o documento.";
       setError(message);
@@ -1132,7 +1167,7 @@ export function RTComposerPage() {
                                             accept="image/jpeg,image/png"
                                             multiple
                                             disabled={uploadingAttachments}
-                                            onChange={handleAttachmentUpload}
+                                            onChange={(event) => handleAttachmentUpload(event, "baixa_ctps_tutela")}
                                         />
                                       </label>
                                       {!processoId ? <small>Os prints serão enviados ao salvar a RT.</small> : null}
@@ -1141,13 +1176,38 @@ export function RTComposerPage() {
                                             {(apiPreviews.baixa_ctps_tutela?.anexos || []).map((anexo) => (
                                                 <div className="block-attachment-thumbnail" key={anexo.id}>
                                                   <img src={anexo.url} alt={anexo.nomeOriginal} />
-                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id)}>×</button>
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "baixa_ctps_tutela")}>×</button>
                                                 </div>
                                             ))}
                                             {pendingCtpsPreviews.map(({ file, key, url }) => (
                                                 <div className="block-attachment-thumbnail" key={key}>
                                                   <img src={url} alt={file.name} />
                                                   <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingAttachmentRemove(key)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
+                                {block.id === "responsabilidade_solidaria_grupo_economico" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar print de CNPJ, QSA e outros"}</span>
+                                        <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "responsabilidade_solidaria_grupo_economico")} />
+                                      </label>
+                                      {!processoId ? <small>Os prints serão enviados ao salvar a RT.</small> : null}
+                                      {apiPreviews.responsabilidade_solidaria_grupo_economico?.anexos.length || pendingResponsabilidadePreviews.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {(apiPreviews.responsabilidade_solidaria_grupo_economico?.anexos || []).map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "responsabilidade_solidaria_grupo_economico")}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingResponsabilidadePreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingResponsabilidadeRemove(key)}>×</button>
                                                 </div>
                                             ))}
                                           </div>
@@ -1175,9 +1235,10 @@ export function RTComposerPage() {
                                         motivoExtincao: "Motivo da extinção do vínculo",
                                         dataExtincao: "Data de extinção do vínculo",
                                         informacoesComplementares: "Informações complementares",
-                                        informacoesComplementaresCtps: "Informações complementares"
+                                        informacoesComplementaresCtps: "Informações complementares",
+                                        descricaoAtividadePrincipal: "Descrição da atividade principal"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "descricaoAtividadePrincipal"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps"].includes(field) ? "field-wide" : undefined} key={field}>
