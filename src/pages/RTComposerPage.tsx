@@ -25,6 +25,7 @@ type BlockId =
     | "contrato_aspectos_gerais"
     | "baixa_ctps_tutela"
     | "baixa_ctps"
+    | "legitimidade_passiva_socios"
     | "grupo_economico"
     | "vinculo_sem_registro"
     | "horas_extras"
@@ -49,7 +50,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dados_reclamante",
   "qualificacao_reclamada",
   "contrato_aspectos_gerais",
-  "baixa_ctps_tutela"
+  "baixa_ctps_tutela",
+  "legitimidade_passiva_socios"
 ];
 
 const contractExtinctionOptions = [
@@ -197,6 +199,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "vinculo_sem_registro", title: "Vínculo sem registro", section: "CTPS e vínculo" },
   { id: "danos_nao_anotacao_ctps", title: "Dano moral por não anotação da CTPS", section: "CTPS e vínculo" },
   { id: "grupo_economico", title: "Grupo econômico", section: "Responsabilidade" },
+  { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
   { id: "horas_extras", title: "Horas extras", section: "Jornada" },
   { id: "intervalo", title: "Intervalo intrajornada", section: "Jornada" },
   { id: "fgts", title: "Diferenças de FGTS", section: "Verbas e reflexos" },
