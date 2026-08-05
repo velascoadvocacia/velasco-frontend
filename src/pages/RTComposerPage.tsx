@@ -95,6 +95,7 @@ interface ComposerState {
   dataExtincao: string;
   informacoesComplementares: string;
   informacoesComplementaresCtps: string;
+  informacoesComplementaresContratoAdministrativo: string;
   descricaoAtividadePrincipal: string;
   objetoContratoAdministrativo: string;
   clausulaNumeroContrato: string;
@@ -230,6 +231,7 @@ const initialState: ComposerState = {
   dataExtincao: "",
   informacoesComplementares: "",
   informacoesComplementaresCtps: "",
+  informacoesComplementaresContratoAdministrativo: "",
   descricaoAtividadePrincipal: "",
   objetoContratoAdministrativo: "",
   clausulaNumeroContrato: "",
@@ -275,7 +277,7 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "objetoContratoAdministrativo",
     "clausulaNumeroContrato",
     "fornecimentoPrestadora",
-    "informacoesComplementares"
+    "informacoesComplementaresContratoAdministrativo"
   ]
 };
 
@@ -1353,15 +1355,16 @@ export function RTComposerPage() {
                                         dataExtincao: "Data de extinção do vínculo",
                                         informacoesComplementares: "Informações complementares",
                                         informacoesComplementaresCtps: "Informações complementares",
+                                        informacoesComplementaresContratoAdministrativo: "Informações complementares",
                                         descricaoAtividadePrincipal: "Descrição da atividade principal",
                                         objetoContratoAdministrativo: "Objeto do contrato administrativo",
                                         clausulaNumeroContrato: "Cláusula e número do contrato",
                                         fornecimentoPrestadora: "O que é fornecido pela prestadora"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "descricaoAtividadePrincipal"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao"].includes(field);
                                       return (
-                                          <label className={["informacoesComplementares", "informacoesComplementaresCtps"].includes(field) ? "field-wide" : undefined} key={field}>
+                                          <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {labels[field]}
                                             {multiline ? (
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
