@@ -24,6 +24,7 @@ type BlockId =
     | "qualificacao_reclamada"
     | "contrato_aspectos_gerais"
     | "baixa_ctps_tutela"
+    | "responsabilidade_subsidiaria"
     | "baixa_ctps"
     | "responsabilidade_solidaria_grupo_economico"
     | "legitimidade_passiva_socios"
@@ -53,6 +54,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "contrato_aspectos_gerais",
   "baixa_ctps_tutela",
   "responsabilidade_solidaria_grupo_economico",
+  "responsabilidade_subsidiaria",
   "legitimidade_passiva_socios"
 ];
 
@@ -107,13 +109,22 @@ interface PreviewBlock {
 }
 
 function renderInlineMarkdown(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|__[^_]+__)/g);
+  const parts = text.split(/(__\*\*.+?\*\*__|\*\*\*.+?\*\*\*|\*\*.+?\*\*|__.+?__|\*.+?\*)/g);
   return parts.map((part, index) => {
+    if (part.startsWith("__**") && part.endsWith("**__")) {
+      return <u key={`${part}-${index}`}><strong>{part.slice(4, -4)}</strong></u>;
+    }
+    if (part.startsWith("***") && part.endsWith("***")) {
+      return <strong key={`${part}-${index}`}><em>{part.slice(3, -3)}</em></strong>;
+    }
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith("__") && part.endsWith("__")) {
       return <u key={`${part}-${index}`}>{part.slice(2, -2)}</u>;
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return <em key={`${part}-${index}`}>{part.slice(1, -1)}</em>;
     }
     return <Fragment key={`${part}-${index}`}>{part}</Fragment>;
   });
@@ -200,6 +211,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
   { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
   { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
+  { id: "responsabilidade_subsidiaria", title: "Responsabilidade subsidiária", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
 ];
 
@@ -352,8 +364,20 @@ export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: 
     }))
   }));
   Object.entries(imageFilesByBlock).forEach(([blockId, files]) => {
-    files?.forEach((file, index) => formData.append(`anexo_${blockId}_${index}`, file, file.name));
+    files?.forEach((file, index) => {
+      const extension = file.name.includes(".") ? `.${file.name.split(".").pop()}` : "";
+      formData.append("arquivos", file, `anexo_${blockId}_${index}${extension}`);
+    });
   });
+
+  console.log(
+      "[RT export] multipart fields:",
+      Array.from(formData.entries()).map(([field, value]) => ({
+        field,
+        fileName: value instanceof File ? value.name : undefined,
+        contentType: value instanceof File ? value.type : "application/json"
+      }))
+  );
 
   const response = await fetch(`${API_BASE_URL}/rt/export`, {
     method: "POST",
@@ -598,6 +622,20 @@ export function RTComposerPage() {
   useEffect(() => {
     if (!selectedApiBlocks.length) {
       setApiPreviews({});
+      return;
+    }
+
+    if (selectedApiBlocks.includes("responsabilidade_subsidiaria") && selectedDefendants.length < 2) {
+      setApiPreviews((current) => ({
+        ...current,
+        responsabilidade_subsidiaria: {
+          text: "",
+          title: "Responsabilidade subsidiária",
+          anexos: [],
+          loading: false,
+          error: "O bloco \"Responsabilidade subsidiária\" requer ao menos 2 reclamadas selecionadas."
+        }
+      }));
       return;
     }
 
@@ -1147,6 +1185,9 @@ export function RTComposerPage() {
                                     <strong>{block.title}</strong>
                                   </div>
                                 </label>
+                                {block.id === "responsabilidade_subsidiaria" && selectedBlocks.includes(block.id) && selectedDefendants.length < 2 ? (
+                                    <div className="block-validation-warning">Este bloco requer pelo menos 2 reclamadas selecionadas.</div>
+                                ) : null}
                                 {block.id === "contrato_aspectos_gerais" ? (
                                     <label className="block-contract-option">
                                       Motivo da extinção do vínculo

@@ -586,6 +586,13 @@ textarea {
   font-size: 0.75rem;
 }
 
+.block-validation-warning {
+  margin: -0.25rem 0 0.5rem 2rem;
+  color: #b45309;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
 .block-attachment-thumbnails,
 .rt-preview-attachments {
   display: flex;
