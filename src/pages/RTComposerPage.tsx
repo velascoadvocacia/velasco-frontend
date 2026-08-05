@@ -55,12 +55,12 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dados_reclamante",
   "qualificacao_reclamada",
   "contrato_aspectos_gerais",
-  "reconhecimento_vinculo_empregaticio",
   "baixa_ctps_tutela",
   "responsabilidade_solidaria_grupo_economico",
   "responsabilidade_subsidiaria",
   "responsabilidade_subsidiaria_contrato_administrativo",
-  "legitimidade_passiva_socios"
+  "legitimidade_passiva_socios",
+  "reconhecimento_vinculo_empregaticio"
 ];
 
 const contractExtinctionOptions = [
@@ -255,12 +255,12 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
-  { id: "reconhecimento_vinculo_empregaticio", title: "Reconhecimento de vínculo empregatício", section: "Contrato de trabalho" },
   { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
   { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
   { id: "responsabilidade_subsidiaria", title: "Responsabilidade subsidiária", section: "Responsabilidade" },
   { id: "responsabilidade_subsidiaria_contrato_administrativo", title: "Responsabilidade subsidiária. Contrato administrativo", section: "Responsabilidade" },
+  { id: "reconhecimento_vinculo_empregaticio", title: "Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
 ];
 
 const defaultBlocks: BlockId[] = [
