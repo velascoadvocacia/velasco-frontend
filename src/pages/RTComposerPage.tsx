@@ -611,6 +611,9 @@ export function RTComposerPage() {
 
   const orderedSelectedBlocks = useMemo(() => orderSelectedBlocks(selectedBlocks), [selectedBlocks]);
   const selectedApiBlocks = orderedSelectedBlocks.filter((block) => BLOCKS_FROM_API.includes(block));
+  const apiBlocksForRequest = selectedApiBlocks.filter(
+      (block) => block !== "responsabilidade_subsidiaria" || selectedDefendants.length >= 2
+  );
   const apiPreviewDependencies = [
     selectedApiBlocks.join(","),
     ...values.claimantIds,
@@ -624,6 +627,21 @@ export function RTComposerPage() {
       setApiPreviews({});
       return;
     }
+
+    if (selectedApiBlocks.includes("responsabilidade_subsidiaria") && selectedDefendants.length < 2) {
+      setApiPreviews((current) => ({
+        ...current,
+        responsabilidade_subsidiaria: {
+          text: "",
+          title: "Responsabilidade subsidiária",
+          anexos: [],
+          loading: false,
+          error: "Selecione pelo menos 2 reclamadas para gerar este bloco."
+        }
+      }));
+    }
+
+    if (!apiBlocksForRequest.length) return;
 
     if (!selectedClaimants.length && !selectedDefendants.length && !selectedLawyers.length) {
         setApiPreviews(Object.fromEntries(selectedApiBlocks.map((id) => [id, {
@@ -653,15 +671,15 @@ export function RTComposerPage() {
         reclamantesIds: values.claimantIds.map(Number),
         reclamadasIds: values.defendantIds.map(Number),
         advogadosIds: values.advogadoIds.map(Number),
-        blocosSelecionados: selectedApiBlocks,
-        dadosVariaveis: buildVariablePayload(values, selectedApiBlocks)
+        blocosSelecionados: apiBlocksForRequest,
+        dadosVariaveis: buildVariablePayload(values, apiBlocksForRequest)
       };
 
       void api.previewRT(session.token, payload)
         .then((response) => {
           setApiPreviews((current) => ({
             ...current,
-            ...Object.fromEntries(selectedApiBlocks.map((id) => {
+            ...Object.fromEntries(apiBlocksForRequest.map((id) => {
               const block = response.blocos.find((item) => item.id === id);
               return [id, {
                 text: block?.texto || "Texto de qualificação não retornado pelo backend.",
@@ -677,7 +695,7 @@ export function RTComposerPage() {
           const error = previewError instanceof Error ? previewError.message : "Falha ao gerar a qualificação.";
           setApiPreviews((current) => ({
             ...current,
-            ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
+            ...Object.fromEntries(apiBlocksForRequest.map((id) => [id, {
               text: "",
               title: "",
               anexos: current[id]?.anexos || [],
@@ -976,8 +994,8 @@ export function RTComposerPage() {
           reclamantesIds: values.claimantIds.map(Number),
           reclamadasIds: values.defendantIds.map(Number),
           advogadosIds: values.advogadoIds.map(Number),
-          blocosSelecionados: selectedApiBlocks,
-          dadosVariaveis: buildVariablePayload(values, selectedApiBlocks)
+          blocosSelecionados: apiBlocksForRequest,
+          dadosVariaveis: buildVariablePayload(values, apiBlocksForRequest)
         });
         blocksForExport = previewBlocks.map((block) => {
           const latestBlock = latestPreview.blocos.find((item) => item.id === block.id);
