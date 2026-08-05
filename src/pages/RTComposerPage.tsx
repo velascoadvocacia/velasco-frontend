@@ -611,9 +611,7 @@ export function RTComposerPage() {
 
   const orderedSelectedBlocks = useMemo(() => orderSelectedBlocks(selectedBlocks), [selectedBlocks]);
   const selectedApiBlocks = orderedSelectedBlocks.filter((block) => BLOCKS_FROM_API.includes(block));
-  const apiBlocksForRequest = selectedApiBlocks.filter(
-      (block) => block !== "responsabilidade_subsidiaria" || selectedDefendants.length >= 2
-  );
+  const apiBlocksForRequest = selectedApiBlocks;
   const apiPreviewDependencies = [
     selectedApiBlocks.join(","),
     ...values.claimantIds,
@@ -626,19 +624,6 @@ export function RTComposerPage() {
     if (!selectedApiBlocks.length) {
       setApiPreviews({});
       return;
-    }
-
-    if (selectedApiBlocks.includes("responsabilidade_subsidiaria") && selectedDefendants.length < 2) {
-      setApiPreviews((current) => ({
-        ...current,
-        responsabilidade_subsidiaria: {
-          text: "",
-          title: "Responsabilidade subsidiária",
-          anexos: [],
-          loading: false,
-          error: ""
-        }
-      }));
     }
 
     if (!apiBlocksForRequest.length) return;
@@ -713,9 +698,7 @@ export function RTComposerPage() {
 
   const apiPreviewTexts = selectedApiBlocks.reduce<Partial<Record<BlockId, string>>>((texts, id) => {
     const preview = apiPreviews[id];
-    texts[id] = id === "responsabilidade_subsidiaria" && selectedDefendants.length < 2
-      ? ""
-      : preview?.loading ? "Gerando texto..." : preview?.error || preview?.text || "";
+    texts[id] = preview?.loading ? "Gerando texto..." : preview?.error || preview?.text || "";
     return texts;
   }, {});
 
