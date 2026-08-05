@@ -586,6 +586,11 @@ textarea {
   font-size: 0.75rem;
 }
 
+.block-attachment-picker .field-warning {
+  color: #9b4b2d;
+  font-weight: 600;
+}
+
 .block-attachment-thumbnails,
 .rt-preview-attachments {
   display: flex;

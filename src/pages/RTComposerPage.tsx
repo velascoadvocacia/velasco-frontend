@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { ChangeEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
@@ -25,6 +26,7 @@ type BlockId =
     | "contrato_aspectos_gerais"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
+    | "responsabilidade_subsidiaria_contrato_administrativo"
     | "baixa_ctps"
     | "responsabilidade_solidaria_grupo_economico"
     | "legitimidade_passiva_socios"
@@ -55,6 +57,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "baixa_ctps_tutela",
   "responsabilidade_solidaria_grupo_economico",
   "responsabilidade_subsidiaria",
+  "responsabilidade_subsidiaria_contrato_administrativo",
   "legitimidade_passiva_socios"
 ];
 
@@ -93,6 +96,9 @@ interface ComposerState {
   informacoesComplementares: string;
   informacoesComplementaresCtps: string;
   descricaoAtividadePrincipal: string;
+  objetoContratoAdministrativo: string;
+  clausulaNumeroContrato: string;
+  fornecimentoPrestadora: string;
 }
 
 interface BlockDefinition {
@@ -108,14 +114,17 @@ interface PreviewBlock {
   anexos: ProcessoAnexoResponse[];
 }
 
-function renderInlineMarkdown(text: string) {
-  const parts = text.split(/(__\*\*.+?\*\*__|\*\*\*.+?\*\*\*|\*\*.+?\*\*|__.+?__|\*.+?\*)/g);
+function renderInlineMarkdown(text: string): ReactNode {
+  const parts = text.split(/(__\*\*\*.+?\*\*\*__|__\*\*.+?\*\*__|\*\*\*.+?\*\*\*|\*\*.+?\*\*|__.+?__|\*.+?\*)/g);
   return parts.map((part, index) => {
+    if (part.startsWith("__***") && part.endsWith("***__")) {
+      return <u key={`${part}-${index}`}><strong><em>{renderInlineMarkdown(part.slice(5, -5))}</em></strong></u>;
+    }
     if (part.startsWith("__**") && part.endsWith("**__")) {
-      return <u key={`${part}-${index}`}><strong>{part.slice(4, -4)}</strong></u>;
+      return <u key={`${part}-${index}`}><strong>{renderInlineMarkdown(part.slice(4, -4))}</strong></u>;
     }
     if (part.startsWith("***") && part.endsWith("***")) {
-      return <strong key={`${part}-${index}`}><em>{part.slice(3, -3)}</em></strong>;
+      return <strong key={`${part}-${index}`}><em>{renderInlineMarkdown(part.slice(3, -3))}</em></strong>;
     }
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
@@ -201,7 +210,10 @@ const initialState: ComposerState = {
   dataExtincao: "",
   informacoesComplementares: "",
   informacoesComplementaresCtps: "",
-  descricaoAtividadePrincipal: ""
+  descricaoAtividadePrincipal: "",
+  objetoContratoAdministrativo: "",
+  clausulaNumeroContrato: "",
+  fornecimentoPrestadora: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -213,6 +225,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
   { id: "responsabilidade_subsidiaria", title: "Responsabilidade subsidiária", section: "Responsabilidade" },
+  { id: "responsabilidade_subsidiaria_contrato_administrativo", title: "Responsabilidade subsidiária. Contrato administrativo", section: "Responsabilidade" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -237,7 +250,13 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "informacoesComplementares"
   ],
   baixa_ctps_tutela: ["dataExtincao", "informacoesComplementaresCtps"],
-  responsabilidade_solidaria_grupo_economico: ["descricaoAtividadePrincipal"]
+  responsabilidade_solidaria_grupo_economico: ["descricaoAtividadePrincipal"],
+  responsabilidade_subsidiaria_contrato_administrativo: [
+    "objetoContratoAdministrativo",
+    "clausulaNumeroContrato",
+    "fornecimentoPrestadora",
+    "informacoesComplementares"
+  ]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -480,6 +499,7 @@ export function RTComposerPage() {
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [pendingCtpsFiles, setPendingCtpsFiles] = useState<File[]>([]);
   const [pendingResponsabilidadeFiles, setPendingResponsabilidadeFiles] = useState<File[]>([]);
+  const [pendingContratoAdministrativoFiles, setPendingContratoAdministrativoFiles] = useState<File[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
@@ -505,11 +525,20 @@ export function RTComposerPage() {
       })),
       [pendingResponsabilidadeFiles]
   );
+  const pendingContratoAdministrativoPreviews = useMemo(
+      () => pendingContratoAdministrativoFiles.map((file) => ({
+        file,
+        key: `${file.name}-${file.size}-${file.lastModified}`,
+        url: URL.createObjectURL(file)
+      })),
+      [pendingContratoAdministrativoFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingResponsabilidadePreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews]);
+    pendingContratoAdministrativoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -526,6 +555,7 @@ export function RTComposerPage() {
         setApiPreviews({});
         setPendingCtpsFiles([]);
         setPendingResponsabilidadeFiles([]);
+        setPendingContratoAdministrativoFiles([]);
         setSavedMessage("");
       }
 
@@ -775,15 +805,19 @@ export function RTComposerPage() {
     );
   }
 
-  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico") {
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo";
+
+  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId) {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
     if (!processoId) {
       if (blockId === "baixa_ctps_tutela") {
         setPendingCtpsFiles((current) => [...current, ...files]);
-      } else {
+      } else if (blockId === "responsabilidade_solidaria_grupo_economico") {
         setPendingResponsabilidadeFiles((current) => [...current, ...files]);
+      } else {
+        setPendingContratoAdministrativoFiles((current) => [...current, ...files]);
       }
       return;
     }
@@ -810,7 +844,7 @@ export function RTComposerPage() {
     }
   }
 
-  async function handleAttachmentRemove(anexoId: number, blockId: "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico") {
+  async function handleAttachmentRemove(anexoId: number, blockId: AttachmentBlockId) {
     if (!session || !processoId) return;
     setError("");
     try {
@@ -835,6 +869,10 @@ export function RTComposerPage() {
     setPendingResponsabilidadeFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingContratoAdministrativoRemove(key: string) {
+    setPendingContratoAdministrativoFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -842,6 +880,7 @@ export function RTComposerPage() {
     setApiPreviews({});
     setPendingCtpsFiles([]);
     setPendingResponsabilidadeFiles([]);
+    setPendingContratoAdministrativoFiles([]);
     setSavedMessage("");
   }
 
@@ -951,6 +990,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingResponsabilidadeFiles, "responsabilidade_solidaria_grupo_economico");
         setPendingResponsabilidadeFiles([]);
       }
+      if (pendingContratoAdministrativoFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingContratoAdministrativoFiles, "responsabilidade_subsidiaria_contrato_administrativo");
+        setPendingContratoAdministrativoFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -994,7 +1038,8 @@ export function RTComposerPage() {
       }
       const imageFilesByBlock = await getExportImageFiles(blocksForExport, {
         baixa_ctps_tutela: pendingCtpsFiles,
-        responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles
+        responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles,
+        responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles
       });
       await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token, imageFilesByBlock);
     } catch (exportError) {
@@ -1241,6 +1286,34 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "responsabilidade_subsidiaria_contrato_administrativo" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      {values.defendantIds.length < 2 ? (
+                                          <small className="field-warning">Este bloco requer pelo menos 2 reclamadas selecionadas.</small>
+                                      ) : null}
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar print do contrato administrativo"}</span>
+                                        <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "responsabilidade_subsidiaria_contrato_administrativo")} />
+                                      </label>
+                                      {!processoId ? <small>Os prints serão enviados ao salvar a RT.</small> : null}
+                                      {apiPreviews.responsabilidade_subsidiaria_contrato_administrativo?.anexos.length || pendingContratoAdministrativoPreviews.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {(apiPreviews.responsabilidade_subsidiaria_contrato_administrativo?.anexos || []).map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "responsabilidade_subsidiaria_contrato_administrativo")}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingContratoAdministrativoPreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingContratoAdministrativoRemove(key)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   <div className="form-grid block-variable-fields">
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) => field !== "motivoExtincao").map((field) => {
@@ -1263,7 +1336,10 @@ export function RTComposerPage() {
                                         dataExtincao: "Data de extinção do vínculo",
                                         informacoesComplementares: "Informações complementares",
                                         informacoesComplementaresCtps: "Informações complementares",
-                                        descricaoAtividadePrincipal: "Descrição da atividade principal"
+                                        descricaoAtividadePrincipal: "Descrição da atividade principal",
+                                        objetoContratoAdministrativo: "Objeto do contrato administrativo",
+                                        clausulaNumeroContrato: "Cláusula e número do contrato",
+                                        fornecimentoPrestadora: "O que é fornecido pela prestadora"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "descricaoAtividadePrincipal"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao"].includes(field);
@@ -1305,7 +1381,11 @@ export function RTComposerPage() {
                   {previewBlocks.map((block) => (
                       <section className="rt-preview-block" key={block.id}>
                         <h4>{block.title}</h4>
-                        {renderBlockContent(block.content, block.anexos, block.id === "baixa_ctps_tutela")}
+                        {renderBlockContent(block.content, block.anexos, [
+                          "baixa_ctps_tutela",
+                          "responsabilidade_solidaria_grupo_economico",
+                          "responsabilidade_subsidiaria_contrato_administrativo"
+                        ].includes(block.id))}
                       </section>
                   ))}
                 </article>
