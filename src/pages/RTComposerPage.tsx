@@ -115,28 +115,48 @@ interface PreviewBlock {
 }
 
 function renderInlineMarkdown(text: string): ReactNode {
-  const parts = text.split(/(__\*\*\*.+?\*\*\*__|__\*\*.+?\*\*__|\*\*\*.+?\*\*\*|\*\*.+?\*\*|__.+?__|\*.+?\*)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith("__***") && part.endsWith("***__")) {
-      return <u key={`${part}-${index}`}><strong><em>{renderInlineMarkdown(part.slice(5, -5))}</em></strong></u>;
+  const result: ReactNode[] = [];
+  let plain = "";
+  const flushPlain = () => {
+    if (plain) {
+      result.push(plain);
+      plain = "";
     }
-    if (part.startsWith("__**") && part.endsWith("**__")) {
-      return <u key={`${part}-${index}`}><strong>{renderInlineMarkdown(part.slice(4, -4))}</strong></u>;
+  };
+  const markers = ["__***", "__**", "***", "**", "__", "*"] as const;
+
+  for (let index = 0; index < text.length;) {
+    const marker = markers.find((candidate) => text.startsWith(candidate, index));
+    if (!marker) {
+      plain += text[index++];
+      continue;
     }
-    if (part.startsWith("***") && part.endsWith("***")) {
-      return <strong key={`${part}-${index}`}><em>{renderInlineMarkdown(part.slice(3, -3))}</em></strong>;
+    const closing = marker === "__***" ? "***__" : marker === "__**" ? "**__" : marker;
+    let end = text.indexOf(closing, index + marker.length);
+    if (marker === "*") {
+      while (end >= 0 && (text[end - 1] === "*" || text[end + 1] === "*")) {
+        end = text.indexOf(closing, end + 1);
+      }
     }
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    if (end < 0) {
+      plain += marker;
+      index += marker.length;
+      continue;
     }
-    if (part.startsWith("__") && part.endsWith("__")) {
-      return <u key={`${part}-${index}`}>{part.slice(2, -2)}</u>;
-    }
-    if (part.startsWith("*") && part.endsWith("*")) {
-      return <em key={`${part}-${index}`}>{part.slice(1, -1)}</em>;
-    }
-    return <Fragment key={`${part}-${index}`}>{part}</Fragment>;
-  });
+    flushPlain();
+    const inner = text.slice(index + marker.length, end);
+    const content = renderInlineMarkdown(inner);
+    const key = `${index}-${marker}-${end}`;
+    if (marker === "__***") result.push(<u key={key}><strong><em>{content}</em></strong></u>);
+    else if (marker === "__**") result.push(<u key={key}><strong>{content}</strong></u>);
+    else if (marker === "***") result.push(<strong key={key}><em>{content}</em></strong>);
+    else if (marker === "**") result.push(<strong key={key}>{content}</strong>);
+    else if (marker === "__") result.push(<u key={key}>{content}</u>);
+    else result.push(<em key={key}>{content}</em>);
+    index = end + closing.length;
+  }
+  flushPlain();
+  return result;
 }
 
 function normalizePreviewAttachments(value: unknown): ProcessoAnexoResponse[] {
