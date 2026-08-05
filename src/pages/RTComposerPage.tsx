@@ -24,6 +24,7 @@ type BlockId =
     | "dados_reclamante"
     | "qualificacao_reclamada"
     | "contrato_aspectos_gerais"
+    | "reconhecimento_vinculo_empregaticio"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -54,6 +55,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dados_reclamante",
   "qualificacao_reclamada",
   "contrato_aspectos_gerais",
+  "reconhecimento_vinculo_empregaticio",
   "baixa_ctps_tutela",
   "responsabilidade_solidaria_grupo_economico",
   "responsabilidade_subsidiaria",
@@ -100,6 +102,11 @@ interface ComposerState {
   objetoContratoAdministrativo: string;
   clausulaNumeroContrato: string;
   fornecimentoPrestadora: string;
+  motivoNaoEventualidade: string;
+  motivoOnerosidade: string;
+  motivoSubordinacao: string;
+  dataInicioVinculo: string;
+  dataFimVinculo: string;
 }
 
 interface BlockDefinition {
@@ -235,7 +242,12 @@ const initialState: ComposerState = {
   descricaoAtividadePrincipal: "",
   objetoContratoAdministrativo: "",
   clausulaNumeroContrato: "",
-  fornecimentoPrestadora: ""
+  fornecimentoPrestadora: "",
+  motivoNaoEventualidade: "",
+  motivoOnerosidade: "",
+  motivoSubordinacao: "",
+  dataInicioVinculo: "",
+  dataFimVinculo: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -243,6 +255,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "qualificacao_reclamada", title: "Qualificação da reclamada", section: "Dados iniciais" },
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
+  { id: "reconhecimento_vinculo_empregaticio", title: "Reconhecimento de vínculo empregatício", section: "Contrato de trabalho" },
   { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
   { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
@@ -278,6 +291,13 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "clausulaNumeroContrato",
     "fornecimentoPrestadora",
     "informacoesComplementaresContratoAdministrativo"
+  ],
+  reconhecimento_vinculo_empregaticio: [
+    "motivoNaoEventualidade",
+    "motivoOnerosidade",
+    "motivoSubordinacao",
+    "dataInicioVinculo",
+    "dataFimVinculo"
   ]
 };
 
@@ -1359,10 +1379,15 @@ export function RTComposerPage() {
                                         descricaoAtividadePrincipal: "Descrição da atividade principal",
                                         objetoContratoAdministrativo: "Objeto do contrato administrativo",
                                         clausulaNumeroContrato: "Cláusula e número do contrato",
-                                        fornecimentoPrestadora: "O que é fornecido pela prestadora"
+                                        fornecimentoPrestadora: "O que é fornecido pela prestadora",
+                                        motivoNaoEventualidade: "Motivo da não eventualidade",
+                                        motivoOnerosidade: "Motivo da onerosidade",
+                                        motivoSubordinacao: "Motivo da subordinação",
+                                        dataInicioVinculo: "Data de início do vínculo",
+                                        dataFimVinculo: "Data de fim do vínculo"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal"].includes(field);
-                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao"].includes(field);
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {labels[field]}
