@@ -25,6 +25,7 @@ type BlockId =
     | "qualificacao_reclamada"
     | "contrato_aspectos_gerais"
     | "reconhecimento_vinculo_empregaticio"
+    | "periodo_sem_registro_ctps"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -60,7 +61,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "responsabilidade_subsidiaria",
   "responsabilidade_subsidiaria_contrato_administrativo",
   "legitimidade_passiva_socios",
-  "reconhecimento_vinculo_empregaticio"
+  "reconhecimento_vinculo_empregaticio",
+  "periodo_sem_registro_ctps"
 ];
 
 const contractExtinctionOptions = [
@@ -107,6 +109,8 @@ interface ComposerState {
   motivoSubordinacao: string;
   dataInicioVinculo: string;
   dataFimVinculo: string;
+  dataAnotacaoCtps: string;
+  dataInicioPrestacaoServicos: string;
 }
 
 interface BlockDefinition {
@@ -247,7 +251,9 @@ const initialState: ComposerState = {
   motivoOnerosidade: "",
   motivoSubordinacao: "",
   dataInicioVinculo: "",
-  dataFimVinculo: ""
+  dataFimVinculo: "",
+  dataAnotacaoCtps: "",
+  dataInicioPrestacaoServicos: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -261,6 +267,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "responsabilidade_subsidiaria", title: "Responsabilidade subsidiária", section: "Responsabilidade" },
   { id: "responsabilidade_subsidiaria_contrato_administrativo", title: "Responsabilidade subsidiária. Contrato administrativo", section: "Responsabilidade" },
   { id: "reconhecimento_vinculo_empregaticio", title: "Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
+  { id: "periodo_sem_registro_ctps", title: "Período sem registro em CTPS. Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -298,6 +305,10 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "motivoSubordinacao",
     "dataInicioVinculo",
     "dataFimVinculo"
+  ],
+  periodo_sem_registro_ctps: [
+    "dataAnotacaoCtps",
+    "dataInicioPrestacaoServicos"
   ]
 };
 
@@ -1384,10 +1395,12 @@ export function RTComposerPage() {
                                         motivoOnerosidade: "Motivo da onerosidade",
                                         motivoSubordinacao: "Motivo da subordinação",
                                         dataInicioVinculo: "Data de início do vínculo",
-                                        dataFimVinculo: "Data de fim do vínculo"
+                                        dataFimVinculo: "Data de fim do vínculo",
+                                        dataAnotacaoCtps: "Data de anotação da CTPS",
+                                        dataInicioPrestacaoServicos: "Data de início da prestação de serviços"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao"].includes(field);
-                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo"].includes(field);
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {labels[field]}
