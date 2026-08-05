@@ -636,7 +636,7 @@ export function RTComposerPage() {
           title: "Responsabilidade subsidiária",
           anexos: [],
           loading: false,
-          error: "Selecione pelo menos 2 reclamadas para gerar este bloco."
+          error: ""
         }
       }));
     }
