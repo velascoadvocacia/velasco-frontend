@@ -713,7 +713,9 @@ export function RTComposerPage() {
 
   const apiPreviewTexts = selectedApiBlocks.reduce<Partial<Record<BlockId, string>>>((texts, id) => {
     const preview = apiPreviews[id];
-    texts[id] = preview?.loading ? "Gerando texto..." : preview?.error || preview?.text || "";
+    texts[id] = id === "responsabilidade_subsidiaria" && selectedDefendants.length < 2
+      ? ""
+      : preview?.loading ? "Gerando texto..." : preview?.error || preview?.text || "";
     return texts;
   }, {});
 
