@@ -1288,9 +1288,6 @@ export function RTComposerPage() {
                                 ) : null}
                                 {block.id === "responsabilidade_subsidiaria_contrato_administrativo" && selectedBlocks.includes(block.id) ? (
                                     <div className="block-attachment-picker">
-                                      {values.defendantIds.length < 2 ? (
-                                          <small className="field-warning">Este bloco requer pelo menos 2 reclamadas selecionadas.</small>
-                                      ) : null}
                                       <label className="attachment-upload-button">
                                         <span>{uploadingAttachments ? "Enviando..." : "Anexar print do contrato administrativo"}</span>
                                         <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "responsabilidade_subsidiaria_contrato_administrativo")} />
