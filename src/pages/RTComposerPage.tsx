@@ -27,6 +27,7 @@ type BlockId =
     | "reconhecimento_vinculo_empregaticio"
     | "periodo_sem_registro_ctps"
     | "dano_moral_ausencia_anotacao_ctps"
+    | "diferencas_salariais_piso_convencional"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -64,7 +65,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "legitimidade_passiva_socios",
   "reconhecimento_vinculo_empregaticio",
   "periodo_sem_registro_ctps",
-  "dano_moral_ausencia_anotacao_ctps"
+  "dano_moral_ausencia_anotacao_ctps",
+  "diferencas_salariais_piso_convencional"
 ];
 
 const contractExtinctionOptions = [
@@ -114,6 +116,7 @@ interface ComposerState {
   dataAnotacaoCtps: string;
   dataInicioPrestacaoServicos: string;
   descricaoDanoMoralCtps: string;
+  cctReferencia: string;
 }
 
 interface BlockDefinition {
@@ -257,7 +260,8 @@ const initialState: ComposerState = {
   dataFimVinculo: "",
   dataAnotacaoCtps: "",
   dataInicioPrestacaoServicos: "",
-  descricaoDanoMoralCtps: ""
+  descricaoDanoMoralCtps: "",
+  cctReferencia: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -273,6 +277,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "reconhecimento_vinculo_empregaticio", title: "Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
   { id: "periodo_sem_registro_ctps", title: "Período sem registro em CTPS. Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
   { id: "dano_moral_ausencia_anotacao_ctps", title: "Dano moral por ausência de anotação da CTPS", section: "Vínculo empregatício" },
+  { id: "diferencas_salariais_piso_convencional", title: "Diferenças salariais. Piso convencional", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -315,7 +320,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataAnotacaoCtps",
     "dataInicioPrestacaoServicos"
   ],
-  dano_moral_ausencia_anotacao_ctps: ["descricaoDanoMoralCtps"]
+  dano_moral_ausencia_anotacao_ctps: ["descricaoDanoMoralCtps"],
+  diferencas_salariais_piso_convencional: ["cctReferencia"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -571,6 +577,7 @@ export function RTComposerPage() {
   const [pendingCtpsFiles, setPendingCtpsFiles] = useState<File[]>([]);
   const [pendingResponsabilidadeFiles, setPendingResponsabilidadeFiles] = useState<File[]>([]);
   const [pendingContratoAdministrativoFiles, setPendingContratoAdministrativoFiles] = useState<File[]>([]);
+  const [pendingDiferencasSalariaisFiles, setPendingDiferencasSalariaisFiles] = useState<File[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
@@ -604,12 +611,21 @@ export function RTComposerPage() {
       })),
       [pendingContratoAdministrativoFiles]
   );
+  const pendingDiferencasSalariaisPreviews = useMemo(
+      () => pendingDiferencasSalariaisFiles.map((file) => ({
+        file,
+        key: `${file.name}-${file.size}-${file.lastModified}`,
+        url: URL.createObjectURL(file)
+      })),
+      [pendingDiferencasSalariaisFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingResponsabilidadePreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingContratoAdministrativoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews]);
+    pendingDiferencasSalariaisPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -627,6 +643,7 @@ export function RTComposerPage() {
         setPendingCtpsFiles([]);
         setPendingResponsabilidadeFiles([]);
         setPendingContratoAdministrativoFiles([]);
+        setPendingDiferencasSalariaisFiles([]);
         setSavedMessage("");
       }
 
@@ -876,7 +893,7 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional";
 
   async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId) {
     const files = Array.from(event.target.files || []);
@@ -887,8 +904,10 @@ export function RTComposerPage() {
         setPendingCtpsFiles((current) => [...current, ...files]);
       } else if (blockId === "responsabilidade_solidaria_grupo_economico") {
         setPendingResponsabilidadeFiles((current) => [...current, ...files]);
-      } else {
+      } else if (blockId === "responsabilidade_subsidiaria_contrato_administrativo") {
         setPendingContratoAdministrativoFiles((current) => [...current, ...files]);
+      } else {
+        setPendingDiferencasSalariaisFiles((current) => [...current, ...files]);
       }
       return;
     }
@@ -944,6 +963,10 @@ export function RTComposerPage() {
     setPendingContratoAdministrativoFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingDiferencasSalariaisRemove(key: string) {
+    setPendingDiferencasSalariaisFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -952,6 +975,7 @@ export function RTComposerPage() {
     setPendingCtpsFiles([]);
     setPendingResponsabilidadeFiles([]);
     setPendingContratoAdministrativoFiles([]);
+    setPendingDiferencasSalariaisFiles([]);
     setSavedMessage("");
   }
 
@@ -1066,6 +1090,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingContratoAdministrativoFiles, "responsabilidade_subsidiaria_contrato_administrativo");
         setPendingContratoAdministrativoFiles([]);
       }
+      if (pendingDiferencasSalariaisFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDiferencasSalariaisFiles, "diferencas_salariais_piso_convencional");
+        setPendingDiferencasSalariaisFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1110,7 +1139,8 @@ export function RTComposerPage() {
       const imageFilesByBlock = await getExportImageFiles(blocksForExport, {
         baixa_ctps_tutela: pendingCtpsFiles,
         responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles,
-        responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles
+        responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles,
+        diferencas_salariais_piso_convencional: pendingDiferencasSalariaisFiles
       });
       await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token, imageFilesByBlock);
     } catch (exportError) {
@@ -1382,6 +1412,31 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "diferencas_salariais_piso_convencional" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar print de holerite, CCT e tabela de diferenças"}</span>
+                                        <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "diferencas_salariais_piso_convencional")} />
+                                      </label>
+                                      {!processoId ? <small>Os prints serão enviados ao salvar a RT.</small> : null}
+                                      {apiPreviews.diferencas_salariais_piso_convencional?.anexos.length || pendingDiferencasSalariaisPreviews.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {(apiPreviews.diferencas_salariais_piso_convencional?.anexos || []).map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "diferencas_salariais_piso_convencional")}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingDiferencasSalariaisPreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingDiferencasSalariaisRemove(key)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   <div className="form-grid block-variable-fields">
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) => field !== "motivoExtincao").map((field) => {
@@ -1416,7 +1471,8 @@ export function RTComposerPage() {
                                         dataFimVinculo: "Data de fim do vínculo",
                                         dataAnotacaoCtps: "Data de anotação da CTPS",
                                         dataInicioPrestacaoServicos: "Data de início da prestação de serviços",
-                                        descricaoDanoMoralCtps: "Descrição do dano/constrangimento sofrido"
+                                        descricaoDanoMoralCtps: "Descrição do dano/constrangimento sofrido",
+                                        cctReferencia: "CCT de referência"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos"].includes(field);
@@ -1461,7 +1517,8 @@ export function RTComposerPage() {
                         {renderBlockContent(block.content, block.anexos, [
                           "baixa_ctps_tutela",
                           "responsabilidade_solidaria_grupo_economico",
-                          "responsabilidade_subsidiaria_contrato_administrativo"
+                          "responsabilidade_subsidiaria_contrato_administrativo",
+                          "diferencas_salariais_piso_convencional"
                         ].includes(block.id))}
                       </section>
                   ))}
