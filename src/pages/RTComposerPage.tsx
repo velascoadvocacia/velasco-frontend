@@ -317,6 +317,15 @@ function blockTitle(block: BlockDefinition, values: ComposerState) {
   return contractExtinctionOptions.find((option) => option.value === values.motivoExtincao)?.title || block.title;
 }
 
+function movePeriodTitleIntoContent(content: string, apiTitle?: string) {
+  const period = apiTitle?.match(/\(de (.+) à (.+)\)$/);
+  if (!period || !content.includes("Durante o intervalo sem registro,")) return content;
+  return content.replace(
+    "Durante o intervalo sem registro,",
+    `Durante o intervalo sem registro (de ${period[1]} à ${period[2]}),`
+  );
+}
+
 function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) {
   const keys = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
   return Object.fromEntries(
@@ -524,12 +533,15 @@ function buildPreviewBlocks(
 
   return selectedBlocks.map((id) => {
     const definition = blockDefinitions.find((item) => item.id === id)!;
+    const apiContent = BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || "";
     return {
       id,
-      title: id === "contrato_aspectos_gerais" || id === "periodo_sem_registro_ctps"
+      title: id === "contrato_aspectos_gerais"
         ? apiPreviewTitles[id] || blockTitle(definition, values)
         : definition.title,
-      content: BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || "",
+      content: id === "periodo_sem_registro_ctps"
+        ? movePeriodTitleIntoContent(apiContent, apiPreviewTitles[id])
+        : apiContent,
       anexos: apiPreviewAttachments[id] || []
     };
   });
