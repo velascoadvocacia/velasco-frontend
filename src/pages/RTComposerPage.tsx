@@ -28,6 +28,12 @@ type BlockId =
     | "periodo_sem_registro_ctps"
     | "dano_moral_ausencia_anotacao_ctps"
     | "diferencas_salariais_piso_convencional"
+    | "ausencia_pagamento_verbas_rescisorias"
+    | "verbas_rescisorias_aviso_previo"
+    | "verbas_rescisorias_ferias"
+    | "verbas_rescisorias_decimo_terceiro"
+    | "verbas_rescisorias_multa_fgts"
+    | "verbas_rescisorias_multas_467_477"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -66,7 +72,16 @@ const BLOCKS_FROM_API: BlockId[] = [
   "reconhecimento_vinculo_empregaticio",
   "periodo_sem_registro_ctps",
   "dano_moral_ausencia_anotacao_ctps",
-  "diferencas_salariais_piso_convencional"
+  "diferencas_salariais_piso_convencional",
+  "ausencia_pagamento_verbas_rescisorias"
+];
+
+const severanceChildBlockIds: BlockId[] = [
+  "verbas_rescisorias_aviso_previo",
+  "verbas_rescisorias_ferias",
+  "verbas_rescisorias_decimo_terceiro",
+  "verbas_rescisorias_multa_fgts",
+  "verbas_rescisorias_multas_467_477"
 ];
 
 const contractExtinctionOptions = [
@@ -117,6 +132,9 @@ interface ComposerState {
   dataInicioPrestacaoServicos: string;
   descricaoDanoMoralCtps: string;
   cctReferencia: string;
+  qtdDiasAviso: string;
+  detalheFerias: string;
+  detalheDecimoTerceiro: string;
 }
 
 interface BlockDefinition {
@@ -261,7 +279,10 @@ const initialState: ComposerState = {
   dataAnotacaoCtps: "",
   dataInicioPrestacaoServicos: "",
   descricaoDanoMoralCtps: "",
-  cctReferencia: ""
+  cctReferencia: "",
+  qtdDiasAviso: "",
+  detalheFerias: "",
+  detalheDecimoTerceiro: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -278,6 +299,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "periodo_sem_registro_ctps", title: "Período sem registro em CTPS. Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
   { id: "dano_moral_ausencia_anotacao_ctps", title: "Dano moral por ausência de anotação da CTPS", section: "Vínculo empregatício" },
   { id: "diferencas_salariais_piso_convencional", title: "Diferenças salariais. Piso convencional", section: "Diferenças salariais" },
+  { id: "ausencia_pagamento_verbas_rescisorias", title: "Ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -321,7 +343,12 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataInicioPrestacaoServicos"
   ],
   dano_moral_ausencia_anotacao_ctps: ["descricaoDanoMoralCtps"],
-  diferencas_salariais_piso_convencional: ["cctReferencia"]
+  diferencas_salariais_piso_convencional: ["cctReferencia"],
+  verbas_rescisorias_aviso_previo: ["qtdDiasAviso"],
+  verbas_rescisorias_ferias: ["detalheFerias"],
+  verbas_rescisorias_decimo_terceiro: ["detalheDecimoTerceiro"],
+  verbas_rescisorias_multa_fgts: [],
+  verbas_rescisorias_multas_467_477: []
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -569,6 +596,7 @@ export function RTComposerPage() {
   const [people, setPeople] = useState<PessoaResponse[]>([]);
   const [users, setUsers] = useState<Usuario[]>([]);
   const [selectedBlocks, setSelectedBlocks] = useState<BlockId[]>(defaultBlocks);
+  const [selectedSeveranceChildren, setSelectedSeveranceChildren] = useState<BlockId[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exportingDocx, setExportingDocx] = useState(false);
@@ -638,6 +666,7 @@ export function RTComposerPage() {
       if (!processoId) {
         setValues(initialState);
         setSelectedBlocks(defaultBlocks);
+        setSelectedSeveranceChildren([]);
         setExistingProcesso(null);
         setApiPreviews({});
         setPendingCtpsFiles([]);
@@ -729,9 +758,14 @@ export function RTComposerPage() {
 
   const orderedSelectedBlocks = useMemo(() => orderSelectedBlocks(selectedBlocks), [selectedBlocks]);
   const selectedApiBlocks = orderedSelectedBlocks.filter((block) => BLOCKS_FROM_API.includes(block));
-  const apiBlocksForRequest = selectedApiBlocks;
+  const apiBlocksForRequest = selectedApiBlocks.flatMap((blockId) =>
+      blockId === "ausencia_pagamento_verbas_rescisorias"
+          ? [blockId, ...selectedSeveranceChildren]
+          : [blockId]
+  );
   const apiPreviewDependencies = [
     selectedApiBlocks.join(","),
+    selectedSeveranceChildren.join(","),
     ...values.claimantIds,
     ...values.defendantIds,
     ...values.advogadoIds,
@@ -782,7 +816,7 @@ export function RTComposerPage() {
         .then((response) => {
           setApiPreviews((current) => ({
             ...current,
-            ...Object.fromEntries(apiBlocksForRequest.map((id) => {
+            ...Object.fromEntries(selectedApiBlocks.map((id) => {
               const block = response.blocos.find((item) => item.id === id);
               return [id, {
                 text: block?.texto || "Texto de qualificação não retornado pelo backend.",
@@ -798,7 +832,7 @@ export function RTComposerPage() {
           const error = previewError instanceof Error ? previewError.message : "Falha ao gerar a qualificação.";
           setApiPreviews((current) => ({
             ...current,
-            ...Object.fromEntries(apiBlocksForRequest.map((id) => [id, {
+            ...Object.fromEntries(selectedApiBlocks.map((id) => [id, {
               text: "",
               title: "",
               anexos: current[id]?.anexos || [],
@@ -891,6 +925,17 @@ export function RTComposerPage() {
             ? current.filter((item) => item !== blockId)
             : [...current, blockId]
     );
+    if (blockId === "ausencia_pagamento_verbas_rescisorias") {
+      setSelectedSeveranceChildren((current) => current.length ? [] : current);
+    }
+  }
+
+  function toggleSeveranceChild(blockId: BlockId) {
+    setSelectedSeveranceChildren((current) =>
+        current.includes(blockId)
+            ? current.filter((item) => item !== blockId)
+            : [...current, blockId]
+    );
   }
 
   type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional";
@@ -970,6 +1015,7 @@ export function RTComposerPage() {
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
+    setSelectedSeveranceChildren([]);
     setExistingProcesso(null);
     setApiPreviews({});
     setPendingCtpsFiles([]);
@@ -1320,6 +1366,30 @@ export function RTComposerPage() {
                                     <strong>{block.title}</strong>
                                   </div>
                                 </label>
+                                {block.id === "ausencia_pagamento_verbas_rescisorias" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-suboptions">
+                                      {[
+                                        ["verbas_rescisorias_aviso_previo", "Aviso prévio indenizado", "qtdDiasAviso", "Quantidade de dias do aviso prévio"],
+                                        ["verbas_rescisorias_ferias", "Férias + 1/3", "detalheFerias", "Detalhe das férias (meses/avos, vencidas ou dobra)"],
+                                        ["verbas_rescisorias_decimo_terceiro", "13º Salário", "detalheDecimoTerceiro", "Detalhe do 13º salário (meses/avos ou vencido)"],
+                                        ["verbas_rescisorias_multa_fgts", "Multa de 40% do FGTS", null, null],
+                                        ["verbas_rescisorias_multas_467_477", "Multas dos arts. 467 e 477, § 8º, da CLT", null, null]
+                                      ].map(([childId, title, field, label]) => (
+                                          <div className="block-suboption" key={childId}>
+                                            <label className="checkbox-card stacked">
+                                              <input type="checkbox" checked={selectedSeveranceChildren.includes(childId as BlockId)} onChange={() => toggleSeveranceChild(childId as BlockId)} />
+                                              <div><strong>{title}</strong></div>
+                                            </label>
+                                            {field && selectedSeveranceChildren.includes(childId as BlockId) ? (
+                                                <label className="block-suboption-field">
+                                                  {label}
+                                                  <input type="text" value={String(values[field as keyof ComposerState] ?? "")} onChange={(event) => handleChange(field as keyof ComposerState, event.target.value)} />
+                                                </label>
+                                            ) : null}
+                                          </div>
+                                      ))}
+                                    </div>
+                                ) : null}
                                 {block.id === "contrato_aspectos_gerais" ? (
                                     <label className="block-contract-option">
                                       Motivo da extinção do vínculo

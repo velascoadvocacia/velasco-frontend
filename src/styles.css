@@ -499,6 +499,32 @@ textarea {
   padding-bottom: 0.65rem;
 }
 
+.block-suboptions {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 2rem 0.75rem 3.5rem;
+  padding-left: 1rem;
+  border-left: 2px solid #e7e7e2;
+}
+
+.block-suboption {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.block-suboption .checkbox-card {
+  padding: 0.55rem 0.7rem;
+}
+
+.block-suboption-field {
+  display: grid;
+  gap: 0.35rem;
+  margin-left: 2.15rem;
+  color: #777;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
 .block-variable-fields {
   gap: 0.65rem;
 }
