@@ -526,7 +526,7 @@ function buildPreviewBlocks(
     const definition = blockDefinitions.find((item) => item.id === id)!;
     return {
       id,
-      title: id === "contrato_aspectos_gerais"
+      title: id === "contrato_aspectos_gerais" || id === "periodo_sem_registro_ctps"
         ? apiPreviewTitles[id] || blockTitle(definition, values)
         : definition.title,
       content: BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || "",
