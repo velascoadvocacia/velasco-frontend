@@ -35,6 +35,7 @@ type BlockId =
     | "verbas_rescisorias_multa_fgts"
     | "verbas_rescisorias_multas_467_477"
     | "dano_moral_ausencia_pagamento_verbas_rescisorias"
+    | "conversao_pedido_demissao_rescisao_indireta"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -75,7 +76,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dano_moral_ausencia_anotacao_ctps",
   "diferencas_salariais_piso_convencional",
   "ausencia_pagamento_verbas_rescisorias",
-  "dano_moral_ausencia_pagamento_verbas_rescisorias"
+  "dano_moral_ausencia_pagamento_verbas_rescisorias",
+  "conversao_pedido_demissao_rescisao_indireta"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -137,6 +139,7 @@ interface ComposerState {
   qtdDiasAviso: string;
   detalheFerias: string;
   detalheDecimoTerceiro: string;
+  descricaoFaltaGrave: string;
 }
 
 interface BlockDefinition {
@@ -284,7 +287,8 @@ const initialState: ComposerState = {
   cctReferencia: "",
   qtdDiasAviso: "",
   detalheFerias: "",
-  detalheDecimoTerceiro: ""
+  detalheDecimoTerceiro: "",
+  descricaoFaltaGrave: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -303,6 +307,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "diferencas_salariais_piso_convencional", title: "Diferenças salariais. Piso convencional", section: "Diferenças salariais" },
   { id: "ausencia_pagamento_verbas_rescisorias", title: "Ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
   { id: "dano_moral_ausencia_pagamento_verbas_rescisorias", title: "Dano moral por ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
+  { id: "conversao_pedido_demissao_rescisao_indireta", title: "Conversão do pedido de demissão em rescisão indireta", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -351,7 +356,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   verbas_rescisorias_ferias: ["detalheFerias"],
   verbas_rescisorias_decimo_terceiro: ["detalheDecimoTerceiro"],
   verbas_rescisorias_multa_fgts: [],
-  verbas_rescisorias_multas_467_477: []
+  verbas_rescisorias_multas_467_477: [],
+  conversao_pedido_demissao_rescisao_indireta: ["descricaoFaltaGrave"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -1545,9 +1551,10 @@ export function RTComposerPage() {
                                         dataAnotacaoCtps: "Data de anotação da CTPS",
                                         dataInicioPrestacaoServicos: "Data de início da prestação de serviços",
                                         descricaoDanoMoralCtps: "Descrição do dano/constrangimento sofrido",
-                                        cctReferencia: "CCT de referência"
+                                        cctReferencia: "CCT de referência",
+                                        descricaoFaltaGrave: "Descrição da falta grave do empregador"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "descricaoFaltaGrave"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
