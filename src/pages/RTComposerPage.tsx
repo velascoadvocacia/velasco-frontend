@@ -34,6 +34,7 @@ type BlockId =
     | "verbas_rescisorias_decimo_terceiro"
     | "verbas_rescisorias_multa_fgts"
     | "verbas_rescisorias_multas_467_477"
+    | "dano_moral_ausencia_pagamento_verbas_rescisorias"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -73,7 +74,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "periodo_sem_registro_ctps",
   "dano_moral_ausencia_anotacao_ctps",
   "diferencas_salariais_piso_convencional",
-  "ausencia_pagamento_verbas_rescisorias"
+  "ausencia_pagamento_verbas_rescisorias",
+  "dano_moral_ausencia_pagamento_verbas_rescisorias"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -300,6 +302,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dano_moral_ausencia_anotacao_ctps", title: "Dano moral por ausência de anotação da CTPS", section: "Vínculo empregatício" },
   { id: "diferencas_salariais_piso_convencional", title: "Diferenças salariais. Piso convencional", section: "Diferenças salariais" },
   { id: "ausencia_pagamento_verbas_rescisorias", title: "Ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
+  { id: "dano_moral_ausencia_pagamento_verbas_rescisorias", title: "Dano moral por ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
