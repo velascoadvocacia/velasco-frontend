@@ -1222,7 +1222,7 @@ export function RTComposerPage() {
     setError("");
     try {
       if (!session) throw new Error("Falha ao exportar a procuração.");
-      const blob = await api.exportProcuracao(session.token, {
+      const { blob, filename } = await api.exportProcuracao(session.token, {
         processoId: processoId ? Number(processoId) : null,
         reclamantesIds: values.claimantIds.map(Number),
         reclamadasIds: values.defendantIds.map(Number),
@@ -1231,7 +1231,7 @@ export function RTComposerPage() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "PROCURAÇÃO AD JUDICIA.docx";
+      link.download = filename;
       link.click();
       URL.revokeObjectURL(url);
     } catch (exportError) {

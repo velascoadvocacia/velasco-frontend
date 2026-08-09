@@ -15,6 +15,7 @@ import type {
   ProcessoAnexoResponse
 } from "../types/api";
 import { API_BASE_URL } from "./constants";
+import { getFilenameFromContentDisposition } from "./contentDisposition";
 
 export class ApiError extends Error {
   status: number;
@@ -171,7 +172,9 @@ export const api = {
       body: JSON.stringify(payload)
     });
     if (!response.ok) throw new ApiError("Falha ao exportar a procuração.", response.status);
-    return response.blob();
+    const blob = await response.blob();
+    const filename = getFilenameFromContentDisposition(response.headers.get("Content-Disposition"));
+    return { blob, filename };
   },
 
   uploadProcessoAnexos: (token: string, processoId: number, files: File[], blocoId = "baixa_ctps_tutela") => {
