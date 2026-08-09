@@ -615,6 +615,7 @@ export function RTComposerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exportingDocx, setExportingDocx] = useState(false);
+  const [exportingProcuracao, setExportingProcuracao] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [pendingCtpsFiles, setPendingCtpsFiles] = useState<File[]>([]);
@@ -1212,6 +1213,34 @@ export function RTComposerPage() {
     }
   }
 
+  async function handleExportProcuracao() {
+    if (!values.claimantIds.length || !values.defendantIds.length || !values.advogadoIds.length) {
+      setError("Selecione ao menos um reclamante, uma reclamada e um advogado antes de exportar.");
+      return;
+    }
+    setExportingProcuracao(true);
+    setError("");
+    try {
+      if (!session) throw new Error("Falha ao exportar a procuração.");
+      const blob = await api.exportProcuracao(session.token, {
+        processoId: processoId ? Number(processoId) : null,
+        reclamantesIds: values.claimantIds.map(Number),
+        reclamadasIds: values.defendantIds.map(Number),
+        advogadosIds: values.advogadoIds.map(Number)
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "PROCURAÇÃO AD JUDICIA.docx";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "Falha ao exportar a procuração.");
+    } finally {
+      setExportingProcuracao(false);
+    }
+  }
+
   // Agrupa blocos por seção
   const blocksBySection = blockDefinitions.reduce((acc, block) => {
     (acc[block.section] ||= []).push(block);
@@ -1244,6 +1273,16 @@ export function RTComposerPage() {
                   disabled={exportingDocx || previewBlocks.length === 0}
               >
                 {exportingDocx ? "Exportando..." : "Exportar .docx"}
+              </button>
+              <button
+                  className="ghost-button ghost-button-light"
+                  type="button"
+                  onClick={() => {
+                    void handleExportProcuracao();
+                  }}
+                  disabled={exportingProcuracao || !values.claimantIds.length || !values.defendantIds.length || !values.advogadoIds.length}
+              >
+                {exportingProcuracao ? "Exportando..." : "PROCURAÇÃO AD JUDICIA"}
               </button>
               <button className="ghost-button ghost-button-light" type="button" onClick={clearDraft}>
                 Limpar campos

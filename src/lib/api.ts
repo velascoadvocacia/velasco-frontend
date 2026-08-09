@@ -161,6 +161,19 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
+  exportProcuracao: async (token: string, payload: { processoId?: number | null; reclamantesIds: number[]; reclamadasIds: number[]; advogadosIds: number[] }) => {
+    const response = await fetch(`${API_BASE_URL}/rt/export-procuracao`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new ApiError("Falha ao exportar a procuração.", response.status);
+    return response.blob();
+  },
+
   uploadProcessoAnexos: (token: string, processoId: number, files: File[], blocoId = "baixa_ctps_tutela") => {
     const formData = new FormData();
     files.forEach((file) => formData.append("arquivos", file));
