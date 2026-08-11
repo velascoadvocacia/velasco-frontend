@@ -37,6 +37,7 @@ type BlockId =
     | "dano_moral_ausencia_pagamento_verbas_rescisorias"
     | "conversao_pedido_demissao_rescisao_indireta"
     | "reversao_justa_causa_rescisao_indireta"
+    | "reversao_justa_causa_dispensa_sem_justa_causa"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -79,7 +80,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "ausencia_pagamento_verbas_rescisorias",
   "dano_moral_ausencia_pagamento_verbas_rescisorias",
   "conversao_pedido_demissao_rescisao_indireta",
-  "reversao_justa_causa_rescisao_indireta"
+  "reversao_justa_causa_rescisao_indireta",
+  "reversao_justa_causa_dispensa_sem_justa_causa"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -313,6 +315,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dano_moral_ausencia_pagamento_verbas_rescisorias", title: "Dano moral por ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
   { id: "conversao_pedido_demissao_rescisao_indireta", title: "Conversão do pedido de demissão em rescisão indireta", section: "Verbas rescisórias" },
   { id: "reversao_justa_causa_rescisao_indireta", title: "Reversão da justa causa para rescisão indireta", section: "Verbas rescisórias" },
+  { id: "reversao_justa_causa_dispensa_sem_justa_causa", title: "Reversão da justa causa para dispensa sem justa causa", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
