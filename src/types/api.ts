@@ -92,6 +92,14 @@ export interface RtPreviewBlock {
   titulo: string;
   texto: string;
   anexos?: ProcessoAnexoResponse[];
+  imagensFixas?: RtPreviewInlineImage[];
+}
+
+export interface RtPreviewInlineImage {
+  url: string;
+  contentType: string;
+  nomeOriginal: string;
+  afterParagraph: number;
 }
 
 export interface RtPreviewResponse {

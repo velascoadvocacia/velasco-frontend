@@ -15,6 +15,8 @@ import type {
   Processo,
   ProcessoCreatePayload,
   ProcessoAnexoResponse,
+  RtPreviewInlineImage,
+  RtPreviewRequest,
   TipoRescisao,
   Usuario
 } from "../types/api";
@@ -27,6 +29,7 @@ type BlockId =
     | "reconhecimento_vinculo_empregaticio"
     | "periodo_sem_registro_ctps"
     | "dano_moral_ausencia_anotacao_ctps"
+    | "retencao_ctps_dano_moral"
     | "diferencas_salariais_piso_convencional"
     | "ausencia_pagamento_verbas_rescisorias"
     | "verbas_rescisorias_aviso_previo"
@@ -77,6 +80,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "reconhecimento_vinculo_empregaticio",
   "periodo_sem_registro_ctps",
   "dano_moral_ausencia_anotacao_ctps",
+  "retencao_ctps_dano_moral",
   "diferencas_salariais_piso_convencional",
   "ausencia_pagamento_verbas_rescisorias",
   "dano_moral_ausencia_pagamento_verbas_rescisorias",
@@ -141,6 +145,7 @@ interface ComposerState {
   dataAnotacaoCtps: string;
   dataInicioPrestacaoServicos: string;
   descricaoDanoMoralCtps: string;
+  dataAssinaturaCarteira: string;
   cctReferencia: string;
   qtdDiasAviso: string;
   detalheFerias: string;
@@ -161,6 +166,7 @@ interface PreviewBlock {
   title: string;
   content: string;
   anexos: ProcessoAnexoResponse[];
+  imagensFixas: RtPreviewInlineImage[];
 }
 
 function renderInlineMarkdown(text: string): ReactNode {
@@ -230,7 +236,43 @@ function normalizePreviewAttachments(value: unknown): ProcessoAnexoResponse[] {
   });
 }
 
-function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], renderAttachments: boolean) {
+function apiAssetUrl(url: string) {
+  return new URL(url, `${API_BASE_URL}/`).toString();
+}
+
+function FixedPreviewImage({ image, token }: { image: RtPreviewInlineImage; token: string }) {
+  const [source, setSource] = useState("");
+
+  useEffect(() => {
+    let objectUrl = "";
+    const controller = new AbortController();
+
+    void fetch(apiAssetUrl(image.url), {
+      headers: { "Authorization": `Bearer ${token}` },
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("Falha ao carregar imagem fixa do preview.");
+        return response.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setSource("");
+      });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [image.url, token]);
+
+  return source ? <img src={source} alt={image.nomeOriginal} /> : null;
+}
+
+function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], imagensFixas: RtPreviewInlineImage[], renderAttachments: boolean, token: string) {
   const paragraphs = content.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
   return paragraphs.map((paragraph, index) => (
     <Fragment key={`${paragraph}-${index}`}>
@@ -249,6 +291,11 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], re
           ))}
         </div>
       ) : null}
+      {imagensFixas.filter((imagem) => imagem.afterParagraph === index + 1).map((imagem) => (
+        <div className="rt-preview-attachments" key={`${imagem.url}-${imagem.afterParagraph}`}>
+          <FixedPreviewImage image={imagem} token={token} />
+        </div>
+      ))}
     </Fragment>
   ));
 }
@@ -292,6 +339,7 @@ const initialState: ComposerState = {
   dataAnotacaoCtps: "",
   dataInicioPrestacaoServicos: "",
   descricaoDanoMoralCtps: "",
+  dataAssinaturaCarteira: "",
   cctReferencia: "",
   qtdDiasAviso: "",
   detalheFerias: "",
@@ -314,6 +362,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "reconhecimento_vinculo_empregaticio", title: "Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
   { id: "periodo_sem_registro_ctps", title: "Período sem registro em CTPS. Reconhecimento de vínculo empregatício", section: "Vínculo empregatício" },
   { id: "dano_moral_ausencia_anotacao_ctps", title: "Dano moral por ausência de anotação da CTPS", section: "Vínculo empregatício" },
+  { id: "retencao_ctps_dano_moral", title: "Retenção da CTPS. Dano moral", section: "Vínculo empregatício" },
   { id: "diferencas_salariais_piso_convencional", title: "Diferenças salariais. Piso convencional", section: "Diferenças salariais" },
   { id: "ausencia_pagamento_verbas_rescisorias", title: "Ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
   { id: "dano_moral_ausencia_pagamento_verbas_rescisorias", title: "Dano moral por ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
@@ -364,6 +413,7 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "dataInicioPrestacaoServicos"
   ],
   dano_moral_ausencia_anotacao_ctps: ["descricaoDanoMoralCtps"],
+  retencao_ctps_dano_moral: ["dataAssinaturaCarteira"],
   diferencas_salariais_piso_convencional: ["cctReferencia"],
   verbas_rescisorias_aviso_previo: ["qtdDiasAviso"],
   verbas_rescisorias_ferias: ["detalheFerias"],
@@ -493,11 +543,19 @@ async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: 
   return filesByBlock;
 }
 
-export async function exportToDocx(previewBlocks: PreviewBlock[], claimantName: string, token: string, imageFilesByBlock: Partial<Record<BlockId, File[]>>) {
+export async function exportToDocx(
+    previewBlocks: PreviewBlock[],
+    claimantName: string,
+    token: string,
+    imageFilesByBlock: Partial<Record<BlockId, File[]>>,
+    requestData: RtPreviewRequest
+) {
   const formData = new FormData();
   formData.append("payload", JSON.stringify({
     claimantName,
+    ...requestData,
     blocks: previewBlocks.map((block) => ({
+      id: block.id,
       title: block.title,
       content: block.content,
       anexos: block.anexos.map((anexo) => ({
@@ -553,7 +611,8 @@ function buildPreviewBlocks(
     selectedBlocks: BlockId[],
     apiPreviewTexts: Partial<Record<BlockId, string>>,
     apiPreviewTitles: Partial<Record<BlockId, string>>,
-    apiPreviewAttachments: Partial<Record<BlockId, ProcessoAnexoResponse[]>>
+    apiPreviewAttachments: Partial<Record<BlockId, ProcessoAnexoResponse[]>>,
+    apiPreviewFixedImages: Partial<Record<BlockId, RtPreviewInlineImage[]>>
 ): PreviewBlock[] {
   const claimantName = claimants.length
       ? claimants.map((item) => item.nome).join(", ")
@@ -605,7 +664,8 @@ function buildPreviewBlocks(
       content: id === "periodo_sem_registro_ctps"
         ? movePeriodTitleIntoContent(apiContent, apiPreviewTitles[id])
         : apiContent,
-      anexos: apiPreviewAttachments[id] || []
+      anexos: apiPreviewAttachments[id] || [],
+      imagensFixas: apiPreviewFixedImages[id] || []
     };
   });
 }
@@ -637,6 +697,7 @@ export function RTComposerPage() {
     text: string;
     title: string;
     anexos: ProcessoAnexoResponse[];
+    imagensFixas: RtPreviewInlineImage[];
     loading: boolean;
     error: string;
   }>>>({});
@@ -810,6 +871,7 @@ export function RTComposerPage() {
           text: "Selecione as partes e advogados para gerar a qualificação.",
           title: "",
           anexos: [],
+          imagensFixas: [],
           loading: false,
           error: ""
       }])));
@@ -823,6 +885,7 @@ export function RTComposerPage() {
         text: current[id]?.text || "",
         title: current[id]?.title || "",
         anexos: current[id]?.anexos || [],
+        imagensFixas: current[id]?.imagensFixas || [],
         loading: true,
         error: ""
       }]))
@@ -847,6 +910,7 @@ export function RTComposerPage() {
                 text: block?.texto || "Texto de qualificação não retornado pelo backend.",
                 title: block?.titulo || "",
                 anexos: normalizePreviewAttachments(block?.anexos),
+                imagensFixas: block?.imagensFixas || [],
                 loading: false,
                 error: ""
               }];
@@ -861,6 +925,7 @@ export function RTComposerPage() {
               text: "",
               title: "",
               anexos: current[id]?.anexos || [],
+              imagensFixas: current[id]?.imagensFixas || [],
               loading: false,
               error
             }]))
@@ -889,9 +954,14 @@ export function RTComposerPage() {
     return attachments;
   }, {});
 
+  const apiPreviewFixedImages = selectedApiBlocks.reduce<Partial<Record<BlockId, RtPreviewInlineImage[]>>>((images, id) => {
+    images[id] = apiPreviews[id]?.imagensFixas || [];
+    return images;
+  }, {});
+
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments, apiPreviewFixedImages),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments, apiPreviewFixedImages]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
@@ -1203,7 +1273,8 @@ export function RTComposerPage() {
             ...block,
             title: latestBlock.titulo,
             content: latestBlock.texto,
-            anexos: normalizePreviewAttachments(latestBlock.anexos)
+            anexos: normalizePreviewAttachments(latestBlock.anexos),
+            imagensFixas: latestBlock.imagensFixas || []
           } : block;
         });
       }
@@ -1213,7 +1284,20 @@ export function RTComposerPage() {
         responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles,
         diferencas_salariais_piso_convencional: pendingDiferencasSalariaisFiles
       });
-      await exportToDocx(blocksForExport, selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria", session.token, imageFilesByBlock);
+      await exportToDocx(
+          blocksForExport,
+          selectedClaimants.map((item) => item.nome).join(", ") || "reclamatoria",
+          session.token,
+          imageFilesByBlock,
+          {
+            processoId: processoId ? Number(processoId) : null,
+            reclamantesIds: values.claimantIds.map(Number),
+            reclamadasIds: values.defendantIds.map(Number),
+            advogadosIds: values.advogadoIds.map(Number),
+            blocosSelecionados: apiBlocksForRequest,
+            dadosVariaveis: buildVariablePayload(values, apiBlocksForRequest)
+          }
+      );
     } catch (exportError) {
       const message = exportError instanceof Error ? exportError.message : "Falha ao exportar o documento.";
       setError(message);
@@ -1605,13 +1689,14 @@ export function RTComposerPage() {
                                         dataAnotacaoCtps: "Data de anotação da CTPS",
                                         dataInicioPrestacaoServicos: "Data de início da prestação de serviços",
                                         descricaoDanoMoralCtps: "Descrição do dano/constrangimento sofrido",
+                                        dataAssinaturaCarteira: "Data de assinatura da carteira",
                                         cctReferencia: "CCT de referência",
                                         justificativaRescisaoIndireta: "Justificativa da rescisão indireta",
                                         descricaoFaltaGrave: "Descrição da falta grave do empregador",
                                         motivoJustaCausa: "Motivo da justa causa"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
-                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos"].includes(field);
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {labels[field]}
@@ -1650,12 +1735,12 @@ export function RTComposerPage() {
                   {previewBlocks.map((block) => (
                       <section className="rt-preview-block" key={block.id}>
                         <h4>{block.title}</h4>
-                        {renderBlockContent(block.content, block.anexos, [
+                        {renderBlockContent(block.content, block.anexos, block.imagensFixas, [
                           "baixa_ctps_tutela",
                           "responsabilidade_solidaria_grupo_economico",
                           "responsabilidade_subsidiaria_contrato_administrativo",
                           "diferencas_salariais_piso_convencional"
-                        ].includes(block.id))}
+                        ].includes(block.id), session?.token || "")}
                       </section>
                   ))}
                 </article>
