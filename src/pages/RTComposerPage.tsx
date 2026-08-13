@@ -35,6 +35,7 @@ type BlockId =
     | "verbas_rescisorias_multa_fgts"
     | "verbas_rescisorias_multas_467_477"
     | "dano_moral_ausencia_pagamento_verbas_rescisorias"
+    | "pedido_rescisao_indireta"
     | "conversao_pedido_demissao_rescisao_indireta"
     | "reversao_justa_causa_rescisao_indireta"
     | "reversao_justa_causa_dispensa_sem_justa_causa"
@@ -79,6 +80,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "diferencas_salariais_piso_convencional",
   "ausencia_pagamento_verbas_rescisorias",
   "dano_moral_ausencia_pagamento_verbas_rescisorias",
+  "pedido_rescisao_indireta",
   "conversao_pedido_demissao_rescisao_indireta",
   "reversao_justa_causa_rescisao_indireta",
   "reversao_justa_causa_dispensa_sem_justa_causa"
@@ -143,6 +145,7 @@ interface ComposerState {
   qtdDiasAviso: string;
   detalheFerias: string;
   detalheDecimoTerceiro: string;
+  justificativaRescisaoIndireta: string;
   descricaoFaltaGrave: string;
   motivoJustaCausa: string;
 }
@@ -293,6 +296,7 @@ const initialState: ComposerState = {
   qtdDiasAviso: "",
   detalheFerias: "",
   detalheDecimoTerceiro: "",
+  justificativaRescisaoIndireta: "",
   descricaoFaltaGrave: "",
   motivoJustaCausa: ""
 };
@@ -313,6 +317,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "diferencas_salariais_piso_convencional", title: "Diferenças salariais. Piso convencional", section: "Diferenças salariais" },
   { id: "ausencia_pagamento_verbas_rescisorias", title: "Ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
   { id: "dano_moral_ausencia_pagamento_verbas_rescisorias", title: "Dano moral por ausência de pagamento das verbas rescisórias", section: "Verbas rescisórias" },
+  { id: "pedido_rescisao_indireta", title: "Pedido de rescisão indireta", section: "Verbas rescisórias" },
   { id: "conversao_pedido_demissao_rescisao_indireta", title: "Conversão do pedido de demissão em rescisão indireta", section: "Verbas rescisórias" },
   { id: "reversao_justa_causa_rescisao_indireta", title: "Reversão da justa causa para rescisão indireta", section: "Verbas rescisórias" },
   { id: "reversao_justa_causa_dispensa_sem_justa_causa", title: "Reversão da justa causa para dispensa sem justa causa", section: "Verbas rescisórias" },
@@ -365,6 +370,7 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   verbas_rescisorias_decimo_terceiro: ["detalheDecimoTerceiro"],
   verbas_rescisorias_multa_fgts: [],
   verbas_rescisorias_multas_467_477: [],
+  pedido_rescisao_indireta: ["justificativaRescisaoIndireta"],
   conversao_pedido_demissao_rescisao_indireta: ["descricaoFaltaGrave"],
   reversao_justa_causa_rescisao_indireta: ["motivoJustaCausa"]
 };
@@ -1600,10 +1606,11 @@ export function RTComposerPage() {
                                         dataInicioPrestacaoServicos: "Data de início da prestação de serviços",
                                         descricaoDanoMoralCtps: "Descrição do dano/constrangimento sofrido",
                                         cctReferencia: "CCT de referência",
+                                        justificativaRescisaoIndireta: "Justificativa da rescisão indireta",
                                         descricaoFaltaGrave: "Descrição da falta grave do empregador",
                                         motivoJustaCausa: "Motivo da justa causa"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
