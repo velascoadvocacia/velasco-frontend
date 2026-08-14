@@ -42,6 +42,7 @@ type BlockId =
     | "conversao_pedido_demissao_rescisao_indireta"
     | "reversao_justa_causa_rescisao_indireta"
     | "reversao_justa_causa_dispensa_sem_justa_causa"
+    | "multa_art_477_clt"
     | "baixa_ctps_tutela"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
@@ -87,7 +88,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "pedido_rescisao_indireta",
   "conversao_pedido_demissao_rescisao_indireta",
   "reversao_justa_causa_rescisao_indireta",
-  "reversao_justa_causa_dispensa_sem_justa_causa"
+  "reversao_justa_causa_dispensa_sem_justa_causa",
+  "multa_art_477_clt"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -370,6 +372,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "conversao_pedido_demissao_rescisao_indireta", title: "Conversão do pedido de demissão em rescisão indireta", section: "Verbas rescisórias" },
   { id: "reversao_justa_causa_rescisao_indireta", title: "Reversão da justa causa para rescisão indireta", section: "Verbas rescisórias" },
   { id: "reversao_justa_causa_dispensa_sem_justa_causa", title: "Reversão da justa causa para dispensa sem justa causa", section: "Verbas rescisórias" },
+  { id: "multa_art_477_clt", title: "Multa do art. 477, § 8º, da CLT", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
