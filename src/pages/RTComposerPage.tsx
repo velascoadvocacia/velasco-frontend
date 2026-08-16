@@ -43,6 +43,7 @@ type BlockId =
     | "reversao_justa_causa_rescisao_indireta"
     | "reversao_justa_causa_dispensa_sem_justa_causa"
     | "multa_art_477_clt"
+    | "dispensa_discriminatoria_reintegracao_ou_pagamento"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -93,7 +94,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "conversao_pedido_demissao_rescisao_indireta",
   "reversao_justa_causa_rescisao_indireta",
   "reversao_justa_causa_dispensa_sem_justa_causa",
-  "multa_art_477_clt"
+  "multa_art_477_clt",
+  "dispensa_discriminatoria_reintegracao_ou_pagamento"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -159,6 +161,10 @@ interface ComposerState {
   justificativaRescisaoIndireta: string;
   descricaoFaltaGrave: string;
   motivoJustaCausa: string;
+  condicaoDiscriminacao: string;
+  comoFicouProvado: string;
+  incluirJurisprudenciaDoenca: boolean;
+  opcaoDesfecho: "" | "reintegracao" | "pagamento_dobro";
 }
 
 interface BlockDefinition {
@@ -352,7 +358,11 @@ const initialState: ComposerState = {
   detalheDecimoTerceiro: "",
   justificativaRescisaoIndireta: "",
   descricaoFaltaGrave: "",
-  motivoJustaCausa: ""
+  motivoJustaCausa: "",
+  condicaoDiscriminacao: "",
+  comoFicouProvado: "",
+  incluirJurisprudenciaDoenca: false,
+  opcaoDesfecho: ""
 };
 
 const blockDefinitions: BlockDefinition[] = [
@@ -379,6 +389,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "reversao_justa_causa_rescisao_indireta", title: "Reversão da justa causa para rescisão indireta", section: "Verbas rescisórias" },
   { id: "reversao_justa_causa_dispensa_sem_justa_causa", title: "Reversão da justa causa para dispensa sem justa causa", section: "Verbas rescisórias" },
   { id: "multa_art_477_clt", title: "Multa do art. 477, § 8º, da CLT", section: "Verbas rescisórias" },
+  { id: "dispensa_discriminatoria_reintegracao_ou_pagamento", title: "Dispensa discriminatória. Reintegração OU Pagamento do período de afastamento", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -431,7 +442,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   verbas_rescisorias_multas_467_477: [],
   pedido_rescisao_indireta: ["justificativaRescisaoIndireta"],
   conversao_pedido_demissao_rescisao_indireta: ["descricaoFaltaGrave"],
-  reversao_justa_causa_rescisao_indireta: ["motivoJustaCausa"]
+  reversao_justa_causa_rescisao_indireta: ["motivoJustaCausa"],
+  dispensa_discriminatoria_reintegracao_ou_pagamento: ["condicaoDiscriminacao", "comoFicouProvado", "incluirJurisprudenciaDoenca", "opcaoDesfecho"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -460,6 +472,9 @@ function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[
     ...buildVariablePayload(values, selectedBlocks),
     ...(selectedBlocks.includes("rescisao_indireta_tutela_antecipada_verbas_incontroversas")
       ? { sitesEncerramentoAtividades }
+      : {}),
+    ...(selectedBlocks.includes("dispensa_discriminatoria_reintegracao_ou_pagamento")
+      ? { incluirJurisprudenciaDoenca: values.incluirJurisprudenciaDoenca }
       : {})
   };
 }
@@ -709,6 +724,7 @@ export function RTComposerPage() {
   const [pendingResponsabilidadeFiles, setPendingResponsabilidadeFiles] = useState<File[]>([]);
   const [pendingContratoAdministrativoFiles, setPendingContratoAdministrativoFiles] = useState<File[]>([]);
   const [pendingDiferencasSalariaisFiles, setPendingDiferencasSalariaisFiles] = useState<File[]>([]);
+  const [pendingDispensaDiscriminatoriaFiles, setPendingDispensaDiscriminatoriaFiles] = useState<File[]>([]);
   const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
   const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
@@ -753,13 +769,22 @@ export function RTComposerPage() {
       })),
       [pendingDiferencasSalariaisFiles]
   );
+  const pendingDispensaDiscriminatoriaPreviews = useMemo(
+      () => pendingDispensaDiscriminatoriaFiles.map((file) => ({
+        file,
+        key: `${file.name}-${file.size}-${file.lastModified}`,
+        url: URL.createObjectURL(file)
+      })),
+      [pendingDispensaDiscriminatoriaFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingResponsabilidadePreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingContratoAdministrativoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDiferencasSalariaisPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews]);
+    pendingDispensaDiscriminatoriaPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -779,6 +804,7 @@ export function RTComposerPage() {
         setPendingResponsabilidadeFiles([]);
         setPendingContratoAdministrativoFiles([]);
         setPendingDiferencasSalariaisFiles([]);
+        setPendingDispensaDiscriminatoriaFiles([]);
         setSiteEncerramentoInput("");
         setSitesEncerramentoAtividades([]);
         setSavedMessage("");
@@ -1067,7 +1093,7 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento";
 
   async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId) {
     const files = Array.from(event.target.files || []);
@@ -1080,6 +1106,8 @@ export function RTComposerPage() {
         setPendingResponsabilidadeFiles((current) => [...current, ...files]);
       } else if (blockId === "responsabilidade_subsidiaria_contrato_administrativo") {
         setPendingContratoAdministrativoFiles((current) => [...current, ...files]);
+      } else if (blockId === "dispensa_discriminatoria_reintegracao_ou_pagamento") {
+        setPendingDispensaDiscriminatoriaFiles((current) => [...current, ...files]);
       } else {
         setPendingDiferencasSalariaisFiles((current) => [...current, ...files]);
       }
@@ -1097,6 +1125,7 @@ export function RTComposerPage() {
           text: current[blockId]?.text || "",
           title: current[blockId]?.title || "",
           anexos: [...(current[blockId]?.anexos || []), ...uploaded],
+          imagensFixas: current[blockId]?.imagensFixas || [],
           loading: false,
           error: ""
         }
@@ -1141,6 +1170,10 @@ export function RTComposerPage() {
     setPendingDiferencasSalariaisFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingDispensaDiscriminatoriaRemove(key: string) {
+    setPendingDispensaDiscriminatoriaFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -1151,6 +1184,7 @@ export function RTComposerPage() {
     setPendingResponsabilidadeFiles([]);
     setPendingContratoAdministrativoFiles([]);
     setPendingDiferencasSalariaisFiles([]);
+    setPendingDispensaDiscriminatoriaFiles([]);
     setSavedMessage("");
   }
 
@@ -1229,7 +1263,16 @@ export function RTComposerPage() {
     };
   }
 
+  function validateDispensaDiscriminatoria() {
+    if (selectedBlocks.includes("dispensa_discriminatoria_reintegracao_ou_pagamento") && !values.opcaoDesfecho) {
+      setError("Selecione o desfecho pretendido no bloco de dispensa discriminatória.");
+      return false;
+    }
+    return true;
+  }
+
   async function handleSave() {
+    if (!validateDispensaDiscriminatoria()) return;
     setIsSaving(true);
     setError("");
     setSavedMessage("");
@@ -1270,6 +1313,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDiferencasSalariaisFiles, "diferencas_salariais_piso_convencional");
         setPendingDiferencasSalariaisFiles([]);
       }
+      if (pendingDispensaDiscriminatoriaFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDispensaDiscriminatoriaFiles, "dispensa_discriminatoria_reintegracao_ou_pagamento");
+        setPendingDispensaDiscriminatoriaFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1286,6 +1334,7 @@ export function RTComposerPage() {
   }
 
   async function handleExportDocx() {
+    if (!validateDispensaDiscriminatoria()) return;
     setExportingDocx(true);
     setError("");
 
@@ -1316,7 +1365,8 @@ export function RTComposerPage() {
         baixa_ctps_tutela: pendingCtpsFiles,
         responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles,
         responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles,
-        diferencas_salariais_piso_convencional: pendingDiferencasSalariaisFiles
+        diferencas_salariais_piso_convencional: pendingDiferencasSalariaisFiles,
+        dispensa_discriminatoria_reintegracao_ou_pagamento: pendingDispensaDiscriminatoriaFiles
       });
       await exportToDocx(
           blocksForExport,
@@ -1688,6 +1738,31 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "dispensa_discriminatoria_reintegracao_ou_pagamento" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar prova(s) da dispensa discriminatória"}</span>
+                                        <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "dispensa_discriminatoria_reintegracao_ou_pagamento")} />
+                                      </label>
+                                      {!processoId ? <small>As provas serão enviadas ao salvar a RT.</small> : null}
+                                      {apiPreviews.dispensa_discriminatoria_reintegracao_ou_pagamento?.anexos.length || pendingDispensaDiscriminatoriaPreviews.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {(apiPreviews.dispensa_discriminatoria_reintegracao_ou_pagamento?.anexos || []).map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "dispensa_discriminatoria_reintegracao_ou_pagamento")}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingDispensaDiscriminatoriaPreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingDispensaDiscriminatoriaRemove(key)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
                                       <div className="block-variable-fields">
@@ -1721,8 +1796,32 @@ export function RTComposerPage() {
                                         ) : null}
                                       </div>
                                   ) : null}
+                                  {block.id === "dispensa_discriminatoria_reintegracao_ou_pagamento" && selectedBlocks.includes(block.id) ? (
+                                      <div className="form-grid block-variable-fields">
+                                        <label className="checkbox-card">
+                                          <input
+                                              type="checkbox"
+                                              checked={values.incluirJurisprudenciaDoenca}
+                                              onChange={(event) => setValues((current) => ({ ...current, incluirJurisprudenciaDoenca: event.target.checked }))}
+                                          />
+                                          <span>Incluir jurisprudência sobre discriminação por doença/HIV (Súmula 443 do TST)</span>
+                                        </label>
+                                        <label>
+                                          Desfecho pretendido
+                                          <select
+                                              value={values.opcaoDesfecho}
+                                              aria-invalid={!values.opcaoDesfecho}
+                                              onChange={(event) => setValues((current) => ({ ...current, opcaoDesfecho: event.target.value as ComposerState["opcaoDesfecho"] }))}
+                                          >
+                                            <option value="">Selecione um desfecho</option>
+                                            <option value="reintegracao">Reintegração no emprego (art. 4º, I, Lei 9.029/1995)</option>
+                                            <option value="pagamento_dobro">Pagamento em dobro do período de afastamento (art. 4º, II, Lei 9.029/1995)</option>
+                                          </select>
+                                        </label>
+                                      </div>
+                                  ) : null}
                                   <div className="form-grid block-variable-fields">
-                                    {(variableFieldsByBlock[block.id] ?? []).filter((field) => field !== "motivoExtincao").map((field) => {
+                                    {(variableFieldsByBlock[block.id] ?? []).filter((field) => !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho"].includes(field)).map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
                                         dataDemissao: "Data de demissão",
@@ -1759,7 +1858,9 @@ export function RTComposerPage() {
                                         cctReferencia: "CCT de referência",
                                         justificativaRescisaoIndireta: "Justificativa da rescisão indireta",
                                         descricaoFaltaGrave: "Descrição da falta grave do empregador",
-                                        motivoJustaCausa: "Motivo da justa causa"
+                                        motivoJustaCausa: "Motivo da justa causa",
+                                        condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
+                                        comoFicouProvado: "Como ficou comprovado"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira"].includes(field);

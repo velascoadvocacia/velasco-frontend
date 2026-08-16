@@ -84,7 +84,7 @@ export interface RtPreviewRequest {
   reclamadasIds: number[];
   advogadosIds: number[];
   blocosSelecionados: string[];
-  dadosVariaveis: Record<string, string | string[] | null>;
+  dadosVariaveis: Record<string, string | string[] | boolean | null>;
 }
 
 export interface RtPreviewBlock {
