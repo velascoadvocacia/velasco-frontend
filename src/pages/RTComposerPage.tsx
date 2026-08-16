@@ -45,6 +45,7 @@ type BlockId =
     | "multa_art_477_clt"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
+    | "tutela_urgencia_natureza_cautelar"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
     | "baixa_ctps"
@@ -76,6 +77,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "contrato_aspectos_gerais",
   "baixa_ctps_tutela",
   "rescisao_indireta_tutela_antecipada_verbas_incontroversas",
+  "tutela_urgencia_natureza_cautelar",
   "responsabilidade_solidaria_grupo_economico",
   "responsabilidade_subsidiaria",
   "responsabilidade_subsidiaria_contrato_administrativo",
@@ -360,6 +362,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
   { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
   { id: "rescisao_indireta_tutela_antecipada_verbas_incontroversas", title: "Rescisão indireta. Tutela antecipada. Verbas incontroversas (art. 294, parágrafo único, do CPC)", section: "Tutela antecipada" },
+  { id: "tutela_urgencia_natureza_cautelar", title: "Tutela de urgência de natureza cautelar. (art. 300 do CPC)", section: "Tutela antecipada" },
   { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
   { id: "responsabilidade_subsidiaria", title: "Responsabilidade subsidiária", section: "Responsabilidade" },
