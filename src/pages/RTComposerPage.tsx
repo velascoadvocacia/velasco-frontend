@@ -44,6 +44,7 @@ type BlockId =
     | "reversao_justa_causa_dispensa_sem_justa_causa"
     | "multa_art_477_clt"
     | "dispensa_discriminatoria_reintegracao_ou_pagamento"
+    | "dispensa_discriminatoria_danos_morais"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -95,7 +96,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "reversao_justa_causa_rescisao_indireta",
   "reversao_justa_causa_dispensa_sem_justa_causa",
   "multa_art_477_clt",
-  "dispensa_discriminatoria_reintegracao_ou_pagamento"
+  "dispensa_discriminatoria_reintegracao_ou_pagamento",
+  "dispensa_discriminatoria_danos_morais"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -390,6 +392,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "reversao_justa_causa_dispensa_sem_justa_causa", title: "Reversão da justa causa para dispensa sem justa causa", section: "Verbas rescisórias" },
   { id: "multa_art_477_clt", title: "Multa do art. 477, § 8º, da CLT", section: "Verbas rescisórias" },
   { id: "dispensa_discriminatoria_reintegracao_ou_pagamento", title: "Dispensa discriminatória. Reintegração OU Pagamento do período de afastamento", section: "Verbas rescisórias" },
+  { id: "dispensa_discriminatoria_danos_morais", title: "Dispensa discriminatória. Danos morais", section: "Verbas rescisórias" },
 ];
 
 const defaultBlocks: BlockId[] = [
