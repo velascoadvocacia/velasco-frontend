@@ -111,6 +111,9 @@ export interface ProcessoAnexoResponse {
   id: number;
   processoId: number;
   blocoId: string;
+  grupo: "geral" | "cbo" | "provas";
+  ordem: number;
+  afterParagraph: number;
   nomeOriginal: string;
   contentType: string;
   tamanhoBytes: number;
@@ -207,6 +210,8 @@ export interface Processo {
   rtSalarioFuncaoAcumulada?: string | null;
   rtValorPagoPorFora?: string | null;
   rtMediaHorasExtras?: string | null;
+  blocosSelecionados?: string[];
+  dadosVariaveis?: Record<string, Record<string, string | null>>;
   createdAt: string;
   updatedAt: string;
   movimentacoes: MovimentacaoResumo[];
@@ -318,7 +323,7 @@ export interface ProcessoCreatePayload {
   advogadosIds?: number[];
   reclamantesIds?: number[];
   blocosSelecionados?: string[];
-  dadosVariaveis?: Record<string, string | null>;
+  dadosVariaveis?: Record<string, Record<string, string | null>>;
 }
 
 export type ProcessoUpdatePayload = ProcessoCreatePayload;

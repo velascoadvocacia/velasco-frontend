@@ -45,6 +45,7 @@ type BlockId =
     | "multa_art_477_clt"
     | "dispensa_discriminatoria_reintegracao_ou_pagamento"
     | "dispensa_discriminatoria_danos_morais"
+    | "desvio_funcao_atividade_efetivamente_exercida"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -97,7 +98,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "reversao_justa_causa_dispensa_sem_justa_causa",
   "multa_art_477_clt",
   "dispensa_discriminatoria_reintegracao_ou_pagamento",
-  "dispensa_discriminatoria_danos_morais"
+  "dispensa_discriminatoria_danos_morais",
+  "desvio_funcao_atividade_efetivamente_exercida"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -137,6 +139,7 @@ interface ComposerState {
   mediaHorasExtras: string;
   dataContratacao: string;
   funcaoContrato: string;
+  funcaoEfetivamenteExercida: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -240,7 +243,10 @@ function normalizePreviewAttachments(value: unknown): ProcessoAnexoResponse[] {
         contentType: "image/*",
         tamanhoBytes: 0,
         url: item,
-        dataUpload: ""
+        dataUpload: "",
+        grupo: "geral",
+        ordem: index,
+        afterParagraph: 1
       }];
     }
     if (item && typeof item === "object" && "url" in item && typeof item.url === "string") {
@@ -298,9 +304,9 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], im
           </Fragment>
         ))}
       </p>
-      {renderAttachments && index === 0 && anexos.length > 0 ? (
+      {renderAttachments && anexos.some((anexo) => (anexo.afterParagraph || 1) === index + 1) ? (
         <div className="rt-preview-attachments">
-          {anexos.map((anexo) => (
+          {anexos.filter((anexo) => (anexo.afterParagraph || 1) === index + 1).map((anexo) => (
             <img key={anexo.id} src={anexo.url} alt={anexo.nomeOriginal} />
           ))}
         </div>
@@ -335,6 +341,7 @@ const initialState: ComposerState = {
   mediaHorasExtras: "",
   dataContratacao: "",
   funcaoContrato: "",
+  funcaoEfetivamenteExercida: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -393,6 +400,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "multa_art_477_clt", title: "Multa do art. 477, § 8º, da CLT", section: "Verbas rescisórias" },
   { id: "dispensa_discriminatoria_reintegracao_ou_pagamento", title: "Dispensa discriminatória. Reintegração OU Pagamento do período de afastamento", section: "Verbas rescisórias" },
   { id: "dispensa_discriminatoria_danos_morais", title: "Dispensa discriminatória. Danos morais", section: "Verbas rescisórias" },
+  { id: "desvio_funcao_atividade_efetivamente_exercida", title: "Desvio de função. Atividade efetivamente exercida pela parte autora", section: "Desvio de função" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -446,7 +454,14 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   pedido_rescisao_indireta: ["justificativaRescisaoIndireta"],
   conversao_pedido_demissao_rescisao_indireta: ["descricaoFaltaGrave"],
   reversao_justa_causa_rescisao_indireta: ["motivoJustaCausa"],
-  dispensa_discriminatoria_reintegracao_ou_pagamento: ["condicaoDiscriminacao", "comoFicouProvado", "incluirJurisprudenciaDoenca", "opcaoDesfecho"]
+  dispensa_discriminatoria_reintegracao_ou_pagamento: ["condicaoDiscriminacao", "comoFicouProvado", "incluirJurisprudenciaDoenca", "opcaoDesfecho"],
+  desvio_funcao_atividade_efetivamente_exercida: [
+    "funcaoContrato",
+    "funcaoEfetivamenteExercida",
+    "clausulaConvencional",
+    "cctReferencia",
+    "redacaoClausula"
+  ]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -464,15 +479,18 @@ function movePeriodTitleIntoContent(content: string, apiTitle?: string) {
 }
 
 function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) {
-  const keys = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
   return Object.fromEntries(
-    Array.from(keys).map((key) => [key, optional(String(values[key] ?? ""))])
+    selectedBlocks.map((blockId) => [
+      blockId,
+      Object.fromEntries((variableFieldsByBlock[blockId] ?? []).map((key) => [key, optional(String(values[key] ?? ""))]))
+    ])
   );
 }
 
 function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[], sitesEncerramentoAtividades: string[]) {
+  const keys = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
   return {
-    ...buildVariablePayload(values, selectedBlocks),
+    ...Object.fromEntries(Array.from(keys).map((key) => [key, optional(String(values[key] ?? ""))])),
     ...(selectedBlocks.includes("rescisao_indireta_tutela_antecipada_verbas_incontroversas")
       ? { sitesEncerramentoAtividades }
       : {}),
@@ -483,8 +501,8 @@ function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[
 }
 
 function selectedVariableValue(values: ComposerState, selectedBlocks: BlockId[], field: keyof ComposerState) {
-  const payload = buildVariablePayload(values, selectedBlocks);
-  return Object.prototype.hasOwnProperty.call(payload, field) ? optional(String(values[field] ?? "")) : null;
+  const selectedFields = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
+  return selectedFields.has(field) ? optional(String(values[field] ?? "")) : null;
 }
 
 function optional(value?: string | null) {
@@ -549,6 +567,8 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     advogadoIds: (processo.advogados?.length ? processo.advogados : [processo.advogado]).map((item) => String(item.id)),
     defendantIds: processo.reclamadas.map((reclamada) => String(reclamada.id)),
     funcao: contrato?.funcaoExercida ?? "",
+    funcaoContrato: contrato?.funcaoExercida ?? "",
+    funcaoEfetivamenteExercida: String(processo.dadosVariaveis?.desvio_funcao_atividade_efetivamente_exercida?.funcaoEfetivamenteExercida ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
@@ -564,8 +584,10 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
   };
 }
 
-async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: Partial<Record<BlockId, File[]>>) {
-  const filesByBlock: Partial<Record<BlockId, File[]>> = {};
+type ExportImageFile = { file: File; grupo: "geral" | "cbo" | "provas" };
+
+async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: Partial<Record<BlockId, ExportImageFile[]>>) {
+  const filesByBlock: Partial<Record<BlockId, ExportImageFile[]>> = {};
   for (const block of blocks) {
     if (!block.anexos.length && !pendingFilesByBlock[block.id]?.length) continue;
     filesByBlock[block.id] = [...(pendingFilesByBlock[block.id] || [])];
@@ -573,7 +595,10 @@ async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: 
       const response = await fetch(anexo.url);
       if (!response.ok) throw new Error(`Não foi possível baixar o anexo ${anexo.nomeOriginal} para exportação.`);
       const blob = await response.blob();
-      filesByBlock[block.id]!.push(new File([blob], anexo.nomeOriginal, { type: anexo.contentType || blob.type }));
+      filesByBlock[block.id]!.push({
+        file: new File([blob], anexo.nomeOriginal, { type: anexo.contentType || blob.type }),
+        grupo: anexo.grupo || "geral"
+      });
     }
   }
   return filesByBlock;
@@ -583,7 +608,7 @@ export async function exportToDocx(
     previewBlocks: PreviewBlock[],
     claimantName: string,
     token: string,
-    imageFilesByBlock: Partial<Record<BlockId, File[]>>,
+    imageFilesByBlock: Partial<Record<BlockId, ExportImageFile[]>>,
     requestData: RtPreviewRequest
 ) {
   const formData = new FormData();
@@ -597,14 +622,17 @@ export async function exportToDocx(
       anexos: block.anexos.map((anexo) => ({
         url: anexo.url,
         contentType: anexo.contentType,
-        nomeOriginal: anexo.nomeOriginal
+        nomeOriginal: anexo.nomeOriginal,
+        grupo: anexo.grupo,
+        afterParagraph: anexo.afterParagraph
       }))
     }))
   }));
   Object.entries(imageFilesByBlock).forEach(([blockId, files]) => {
-    files?.forEach((file, index) => {
+    files?.forEach(({ file, grupo }, index) => {
       const extension = file.name.includes(".") ? `.${file.name.split(".").pop()}` : "";
-      formData.append("arquivos", file, `anexo_${blockId}_${index}${extension}`);
+      const groupSuffix = grupo === "geral" ? "" : `_${grupo}`;
+      formData.append("arquivos", file, `anexo_${blockId}${groupSuffix}_${index}${extension}`);
     });
   });
 
@@ -728,6 +756,8 @@ export function RTComposerPage() {
   const [pendingContratoAdministrativoFiles, setPendingContratoAdministrativoFiles] = useState<File[]>([]);
   const [pendingDiferencasSalariaisFiles, setPendingDiferencasSalariaisFiles] = useState<File[]>([]);
   const [pendingDispensaDiscriminatoriaFiles, setPendingDispensaDiscriminatoriaFiles] = useState<File[]>([]);
+  const [pendingDesvioCboFiles, setPendingDesvioCboFiles] = useState<File[]>([]);
+  const [pendingDesvioProvasFiles, setPendingDesvioProvasFiles] = useState<File[]>([]);
   const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
   const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
@@ -780,6 +810,14 @@ export function RTComposerPage() {
       })),
       [pendingDispensaDiscriminatoriaFiles]
   );
+  const pendingDesvioCboPreviews = useMemo(
+      () => pendingDesvioCboFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
+      [pendingDesvioCboFiles]
+  );
+  const pendingDesvioProvasPreviews = useMemo(
+      () => pendingDesvioProvasFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
+      [pendingDesvioProvasFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
@@ -787,7 +825,9 @@ export function RTComposerPage() {
     pendingContratoAdministrativoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDiferencasSalariaisPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDispensaDiscriminatoriaPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews]);
+    pendingDesvioCboPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+    pendingDesvioProvasPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -808,6 +848,8 @@ export function RTComposerPage() {
         setPendingContratoAdministrativoFiles([]);
         setPendingDiferencasSalariaisFiles([]);
         setPendingDispensaDiscriminatoriaFiles([]);
+        setPendingDesvioCboFiles([]);
+        setPendingDesvioProvasFiles([]);
         setSiteEncerramentoInput("");
         setSitesEncerramentoAtividades([]);
         setSavedMessage("");
@@ -1096,9 +1138,9 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida";
 
-  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId) {
+  async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId, grupo = "geral") {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
@@ -1111,6 +1153,10 @@ export function RTComposerPage() {
         setPendingContratoAdministrativoFiles((current) => [...current, ...files]);
       } else if (blockId === "dispensa_discriminatoria_reintegracao_ou_pagamento") {
         setPendingDispensaDiscriminatoriaFiles((current) => [...current, ...files]);
+      } else if (blockId === "desvio_funcao_atividade_efetivamente_exercida" && grupo === "cbo") {
+        setPendingDesvioCboFiles((current) => [...current, ...files]);
+      } else if (blockId === "desvio_funcao_atividade_efetivamente_exercida") {
+        setPendingDesvioProvasFiles((current) => [...current, ...files]);
       } else {
         setPendingDiferencasSalariaisFiles((current) => [...current, ...files]);
       }
@@ -1121,7 +1167,7 @@ export function RTComposerPage() {
     setUploadingAttachments(true);
     setError("");
     try {
-      const uploaded = await api.uploadProcessoAnexos(session.token, Number(processoId), files, blockId);
+      const uploaded = await api.uploadProcessoAnexos(session.token, Number(processoId), files, blockId, grupo);
       setApiPreviews((current) => ({
         ...current,
         [blockId]: {
@@ -1177,6 +1223,14 @@ export function RTComposerPage() {
     setPendingDispensaDiscriminatoriaFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingDesvioRemove(key: string, grupo: "cbo" | "provas") {
+    if (grupo === "cbo") {
+      setPendingDesvioCboFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+    } else {
+      setPendingDesvioProvasFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+    }
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -1188,6 +1242,8 @@ export function RTComposerPage() {
     setPendingContratoAdministrativoFiles([]);
     setPendingDiferencasSalariaisFiles([]);
     setPendingDispensaDiscriminatoriaFiles([]);
+    setPendingDesvioCboFiles([]);
+    setPendingDesvioProvasFiles([]);
     setSavedMessage("");
   }
 
@@ -1321,6 +1377,16 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDispensaDiscriminatoriaFiles, "dispensa_discriminatoria_reintegracao_ou_pagamento");
         setPendingDispensaDiscriminatoriaFiles([]);
       }
+      if (pendingDesvioCboFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDesvioCboFiles, "desvio_funcao_atividade_efetivamente_exercida", "cbo");
+        setPendingDesvioCboFiles([]);
+      }
+      if (pendingDesvioProvasFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDesvioProvasFiles, "desvio_funcao_atividade_efetivamente_exercida", "provas");
+        setPendingDesvioProvasFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1365,11 +1431,15 @@ export function RTComposerPage() {
         });
       }
       const imageFilesByBlock = await getExportImageFiles(blocksForExport, {
-        baixa_ctps_tutela: pendingCtpsFiles,
-        responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles,
-        responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles,
-        diferencas_salariais_piso_convencional: pendingDiferencasSalariaisFiles,
-        dispensa_discriminatoria_reintegracao_ou_pagamento: pendingDispensaDiscriminatoriaFiles
+        baixa_ctps_tutela: pendingCtpsFiles.map((file) => ({ file, grupo: "geral" })),
+        responsabilidade_solidaria_grupo_economico: pendingResponsabilidadeFiles.map((file) => ({ file, grupo: "geral" })),
+        responsabilidade_subsidiaria_contrato_administrativo: pendingContratoAdministrativoFiles.map((file) => ({ file, grupo: "geral" })),
+        diferencas_salariais_piso_convencional: pendingDiferencasSalariaisFiles.map((file) => ({ file, grupo: "geral" })),
+        dispensa_discriminatoria_reintegracao_ou_pagamento: pendingDispensaDiscriminatoriaFiles.map((file) => ({ file, grupo: "geral" })),
+        desvio_funcao_atividade_efetivamente_exercida: [
+          ...pendingDesvioCboFiles.map((file) => ({ file, grupo: "cbo" as const })),
+          ...pendingDesvioProvasFiles.map((file) => ({ file, grupo: "provas" as const }))
+        ]
       });
       await exportToDocx(
           blocksForExport,
@@ -1766,6 +1836,32 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "desvio_funcao_atividade_efetivamente_exercida" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      {(["cbo", "provas"] as const).map((grupo) => {
+                                        const persisted = (apiPreviews[block.id]?.anexos || []).filter((anexo) => anexo.grupo === grupo);
+                                        const pending = grupo === "cbo" ? pendingDesvioCboPreviews : pendingDesvioProvasPreviews;
+                                        const label = grupo === "cbo" ? "Prints da CBO" : "Provas";
+                                        return <div key={grupo}>
+                                          <label className="attachment-upload-button">
+                                            <span>{uploadingAttachments ? "Enviando..." : `Anexar ${label}`}</span>
+                                            <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "desvio_funcao_atividade_efetivamente_exercida", grupo)} />
+                                          </label>
+                                          {!processoId ? <small>{label} serão enviados ao salvar a RT.</small> : null}
+                                          {persisted.length || pending.length ? <div className="block-attachment-thumbnails">
+                                            {persisted.map((anexo) => <div className="block-attachment-thumbnail" key={anexo.id}>
+                                              <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                              <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "desvio_funcao_atividade_efetivamente_exercida")}>×</button>
+                                            </div>)}
+                                            {pending.map(({ file, key, url }) => <div className="block-attachment-thumbnail" key={key}>
+                                              <img src={url} alt={file.name} />
+                                              <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingDesvioRemove(key, grupo)}>×</button>
+                                            </div>)}
+                                          </div> : null}
+                                        </div>;
+                                      })}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
                                       <div className="block-variable-fields">
@@ -1839,6 +1935,7 @@ export function RTComposerPage() {
                                         mediaHorasExtras: "Média de horas extras",
                                         dataContratacao: "Data de contratação",
                                         funcaoContrato: "Função exercida",
+                                        funcaoEfetivamenteExercida: "Função efetivamente exercida",
                                         remuneracao: "Última remuneração",
                                         motivoExtincao: "Motivo da extinção do vínculo",
                                         dataExtincao: "Data de extinção do vínculo",
@@ -1867,9 +1964,10 @@ export function RTComposerPage() {
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira"].includes(field);
+                                      const fieldLabel = block.id === "desvio_funcao_atividade_efetivamente_exercida" && field === "funcaoContrato" ? "Função registrada" : labels[field];
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
-                                            {labels[field]}
+                                            {fieldLabel}
                                             {multiline ? (
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
                                             ) : (

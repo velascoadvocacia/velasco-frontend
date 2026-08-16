@@ -177,10 +177,17 @@ export const api = {
     return { blob, filename };
   },
 
-  uploadProcessoAnexos: (token: string, processoId: number, files: File[], blocoId = "baixa_ctps_tutela") => {
+  uploadProcessoAnexos: (
+    token: string,
+    processoId: number,
+    files: File[],
+    blocoId = "baixa_ctps_tutela",
+    grupo = "geral"
+  ) => {
     const formData = new FormData();
     files.forEach((file) => formData.append("arquivos", file));
     formData.append("blocoId", blocoId);
+    formData.append("grupo", grupo);
     return request<ProcessoAnexoResponse[]>(`/processos/${processoId}/anexos`, {
       method: "POST",
       token,
