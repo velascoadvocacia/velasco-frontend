@@ -44,6 +44,7 @@ type BlockId =
     | "reversao_justa_causa_dispensa_sem_justa_causa"
     | "multa_art_477_clt"
     | "baixa_ctps_tutela"
+    | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "responsabilidade_subsidiaria"
     | "responsabilidade_subsidiaria_contrato_administrativo"
     | "baixa_ctps"
@@ -74,6 +75,7 @@ const BLOCKS_FROM_API: BlockId[] = [
   "qualificacao_reclamada",
   "contrato_aspectos_gerais",
   "baixa_ctps_tutela",
+  "rescisao_indireta_tutela_antecipada_verbas_incontroversas",
   "responsabilidade_solidaria_grupo_economico",
   "responsabilidade_subsidiaria",
   "responsabilidade_subsidiaria_contrato_administrativo",
@@ -357,6 +359,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dados_reclamante", title: "Dados do(a) reclamante", section: "Dados iniciais" },
   { id: "contrato_aspectos_gerais", title: "Contrato de trabalho - Aspectos gerais", section: "Contrato de trabalho" },
   { id: "baixa_ctps_tutela", title: "Baixa na CTPS física. Tutela antecipada", section: "Tutela antecipada" },
+  { id: "rescisao_indireta_tutela_antecipada_verbas_incontroversas", title: "Rescisão indireta. Tutela antecipada. Verbas incontroversas (art. 294, parágrafo único, do CPC)", section: "Tutela antecipada" },
   { id: "responsabilidade_solidaria_grupo_economico", title: "Responsabilidade solidária. Grupo econômico", section: "Responsabilidade" },
   { id: "legitimidade_passiva_socios", title: "Legitimidade passiva dos sócios das rés", section: "Responsabilidade" },
   { id: "responsabilidade_subsidiaria", title: "Responsabilidade subsidiária", section: "Responsabilidade" },
@@ -447,6 +450,15 @@ function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) 
   return Object.fromEntries(
     Array.from(keys).map((key) => [key, optional(String(values[key] ?? ""))])
   );
+}
+
+function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[], sitesEncerramentoAtividades: string[]) {
+  return {
+    ...buildVariablePayload(values, selectedBlocks),
+    ...(selectedBlocks.includes("rescisao_indireta_tutela_antecipada_verbas_incontroversas")
+      ? { sitesEncerramentoAtividades }
+      : {})
+  };
 }
 
 function selectedVariableValue(values: ComposerState, selectedBlocks: BlockId[], field: keyof ComposerState) {
@@ -694,6 +706,8 @@ export function RTComposerPage() {
   const [pendingResponsabilidadeFiles, setPendingResponsabilidadeFiles] = useState<File[]>([]);
   const [pendingContratoAdministrativoFiles, setPendingContratoAdministrativoFiles] = useState<File[]>([]);
   const [pendingDiferencasSalariaisFiles, setPendingDiferencasSalariaisFiles] = useState<File[]>([]);
+  const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
+  const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
   const [existingProcesso, setExistingProcesso] = useState<Processo | null>(null);
   const [apiPreviews, setApiPreviews] = useState<Partial<Record<BlockId, {
@@ -762,6 +776,8 @@ export function RTComposerPage() {
         setPendingResponsabilidadeFiles([]);
         setPendingContratoAdministrativoFiles([]);
         setPendingDiferencasSalariaisFiles([]);
+        setSiteEncerramentoInput("");
+        setSitesEncerramentoAtividades([]);
         setSavedMessage("");
       }
 
@@ -858,6 +874,7 @@ export function RTComposerPage() {
     ...values.claimantIds,
     ...values.defendantIds,
     ...values.advogadoIds,
+    ...sitesEncerramentoAtividades,
     ...Object.entries(values).filter(([key]) => key !== "claimantSearch" && key !== "defendantSearch")
   ];
 
@@ -900,7 +917,7 @@ export function RTComposerPage() {
         reclamadasIds: values.defendantIds.map(Number),
         advogadosIds: values.advogadoIds.map(Number),
         blocosSelecionados: apiBlocksForRequest,
-        dadosVariaveis: buildVariablePayload(values, apiBlocksForRequest)
+        dadosVariaveis: buildApiVariablePayload(values, apiBlocksForRequest, sitesEncerramentoAtividades)
       };
 
       void api.previewRT(session.token, payload)
@@ -969,6 +986,17 @@ export function RTComposerPage() {
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
     setValues((current) => ({ ...current, [field]: value as never }));
+  }
+
+  function addSiteEncerramento() {
+    const site = siteEncerramentoInput.trim();
+    if (!site) return;
+    setSitesEncerramentoAtividades((current) => current.includes(site) ? current : [...current, site]);
+    setSiteEncerramentoInput("");
+  }
+
+  function removeSiteEncerramento(site: string) {
+    setSitesEncerramentoAtividades((current) => current.filter((item) => item !== site));
   }
 
   function addClaimant(personId: number) {
@@ -1268,7 +1296,7 @@ export function RTComposerPage() {
           reclamadasIds: values.defendantIds.map(Number),
           advogadosIds: values.advogadoIds.map(Number),
           blocosSelecionados: apiBlocksForRequest,
-          dadosVariaveis: buildVariablePayload(values, apiBlocksForRequest)
+          dadosVariaveis: buildApiVariablePayload(values, apiBlocksForRequest, sitesEncerramentoAtividades)
         });
         blocksForExport = previewBlocks.map((block) => {
           const latestBlock = latestPreview.blocos.find((item) => item.id === block.id);
@@ -1298,7 +1326,7 @@ export function RTComposerPage() {
             reclamadasIds: values.defendantIds.map(Number),
             advogadosIds: values.advogadoIds.map(Number),
             blocosSelecionados: apiBlocksForRequest,
-            dadosVariaveis: buildVariablePayload(values, apiBlocksForRequest)
+            dadosVariaveis: buildApiVariablePayload(values, apiBlocksForRequest, sitesEncerramentoAtividades)
           }
       );
     } catch (exportError) {
@@ -1658,6 +1686,38 @@ export function RTComposerPage() {
                                     </div>
                                 ) : null}
                                 <div className="block-accordion-content">
+                                  {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
+                                      <div className="block-variable-fields">
+                                        <label>
+                                          Sites que noticiam o encerramento das atividades da ré
+                                          <input
+                                              type="url"
+                                              value={siteEncerramentoInput}
+                                              onChange={(event) => setSiteEncerramentoInput(event.target.value)}
+                                              onKeyDown={(event) => {
+                                                if (event.key === "Enter") {
+                                                  event.preventDefault();
+                                                  addSiteEncerramento();
+                                                }
+                                              }}
+                                              placeholder="https://exemplo.com/noticia"
+                                          />
+                                        </label>
+                                        <button type="button" onClick={addSiteEncerramento}>Adicionar site</button>
+                                        {sitesEncerramentoAtividades.length > 0 ? (
+                                            <div className="selected-entities-grid">
+                                              {sitesEncerramentoAtividades.map((site) => (
+                                                  <div className="selected-summary-card" key={site}>
+                                                    <span>{site}</span>
+                                                    <button className="inline-remove-button" type="button" onClick={() => removeSiteEncerramento(site)}>
+                                                      Remover
+                                                    </button>
+                                                  </div>
+                                              ))}
+                                            </div>
+                                        ) : null}
+                                      </div>
+                                  ) : null}
                                   <div className="form-grid block-variable-fields">
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) => field !== "motivoExtincao").map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
