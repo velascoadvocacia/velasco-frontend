@@ -53,6 +53,7 @@ type BlockId =
     | "dano_moral_atraso_salarial"
     | "verbas_rescisorias_media_horas_extras_nao_paga"
     | "jornada_trabalho"
+    | "jornada_trabalho_horas_extras"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -85,7 +86,7 @@ interface BlockRelationship {
 }
 
 const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
-  jornada_trabalho: { children: [] }
+  jornada_trabalho: { children: ["jornada_trabalho_horas_extras"] }
 };
 
 const parentByChild = Object.fromEntries(
@@ -128,7 +129,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dano_moral_atraso_salarial",
   "adicional_transferencia",
   "verbas_rescisorias_media_horas_extras_nao_paga",
-  "jornada_trabalho"
+  "jornada_trabalho",
+  "jornada_trabalho_horas_extras"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -461,6 +463,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "adicional_transferencia", title: "Adicional de transferência", section: "Diferenças salariais" },
   { id: "verbas_rescisorias_media_horas_extras_nao_paga", title: "Verbas rescisórias. Média de horas extras não paga", section: "Verbas rescisórias" },
   { id: "jornada_trabalho", title: "Jornada de trabalho", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_horas_extras", title: "a. Horas extras", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
