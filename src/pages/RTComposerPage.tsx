@@ -47,6 +47,7 @@ type BlockId =
     | "dispensa_discriminatoria_danos_morais"
     | "desvio_funcao_atividade_efetivamente_exercida"
     | "diferencas_salariais_acumulo_funcoes"
+    | "diferencas_salariais_motorista_carreteiro_carregador"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -101,7 +102,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dispensa_discriminatoria_reintegracao_ou_pagamento",
   "dispensa_discriminatoria_danos_morais",
   "desvio_funcao_atividade_efetivamente_exercida",
-  "diferencas_salariais_acumulo_funcoes"
+  "diferencas_salariais_acumulo_funcoes",
+  "diferencas_salariais_motorista_carreteiro_carregador"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -143,6 +145,7 @@ interface ComposerState {
   funcaoContrato: string;
   funcaoEfetivamenteExercida: string;
   dataInicioAcumuloFuncao: string;
+  funcaoAdicional: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -295,11 +298,11 @@ function FixedPreviewImage({ image, token }: { image: RtPreviewInlineImage; toke
   return source ? <img src={source} alt={image.nomeOriginal} /> : null;
 }
 
-function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], imagensFixas: RtPreviewInlineImage[], renderAttachments: boolean, token: string) {
+function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], imagensFixas: RtPreviewInlineImage[], renderAttachments: boolean, token: string, blockId: BlockId) {
   const paragraphs = content.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
   return paragraphs.map((paragraph, index) => (
     <Fragment key={`${paragraph}-${index}`}>
-      <p>
+      <p className={blockId === "diferencas_salariais_motorista_carreteiro_carregador" && /TRT\s*(?:da\s*)?(?:8ª|10ª|14ª)\s*Regi[aã]o/i.test(paragraph) ? "rt-preview-citation-right" : undefined}>
         {paragraph.split("\n").map((line, lineIndex) => (
           <Fragment key={`${line}-${lineIndex}`}>
             {lineIndex > 0 ? <br /> : null}
@@ -346,6 +349,7 @@ const initialState: ComposerState = {
   funcaoContrato: "",
   funcaoEfetivamenteExercida: "",
   dataInicioAcumuloFuncao: "",
+  funcaoAdicional: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -406,6 +410,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dispensa_discriminatoria_danos_morais", title: "Dispensa discriminatória. Danos morais", section: "Verbas rescisórias" },
   { id: "desvio_funcao_atividade_efetivamente_exercida", title: "Desvio de função. Atividade efetivamente exercida pela parte autora", section: "Desvio de função" },
   { id: "diferencas_salariais_acumulo_funcoes", title: "Diferenças salariais. Exercício de função de _____ e de _____", section: "Diferenças salariais" },
+  { id: "diferencas_salariais_motorista_carreteiro_carregador", title: "Diferenças salariais. Exercício de função de motorista carreteiro e de carregador de caminhão", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -475,7 +480,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "salarioFuncaoOriginal",
     "salarioFuncaoAcumulada",
     "remuneracao"
-  ]
+  ],
+  diferencas_salariais_motorista_carreteiro_carregador: ["funcaoAdicional"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -598,6 +604,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     funcaoContrato: contrato?.funcaoExercida ?? "",
     funcaoEfetivamenteExercida: String(processo.dadosVariaveis?.desvio_funcao_atividade_efetivamente_exercida?.funcaoEfetivamenteExercida ?? ""),
     dataInicioAcumuloFuncao: String(processo.dadosVariaveis?.diferencas_salariais_acumulo_funcoes?.dataInicioAcumuloFuncao ?? ""),
+    funcaoAdicional: String(processo.dadosVariaveis?.diferencas_salariais_motorista_carreteiro_carregador?.funcaoAdicional ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
@@ -1953,6 +1960,7 @@ export function RTComposerPage() {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
                                         dataInicioAcumuloFuncao: "Data de início do acúmulo de função",
+                                        funcaoAdicional: "Função adicional exercida",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2050,7 +2058,7 @@ export function RTComposerPage() {
                           "responsabilidade_solidaria_grupo_economico",
                           "responsabilidade_subsidiaria_contrato_administrativo",
                           "diferencas_salariais_piso_convencional"
-                        ].includes(block.id), session?.token || "")}
+                        ].includes(block.id), session?.token || "", block.id)}
                       </section>
                   ))}
                 </article>

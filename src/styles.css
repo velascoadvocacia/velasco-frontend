@@ -804,6 +804,10 @@ textarea {
   white-space: pre-wrap;
 }
 
+.rt-preview p.rt-preview-citation-right {
+  text-align: right;
+}
+
 .rt-preview-block {
   display: grid;
   gap: 0.45rem;
