@@ -808,6 +808,12 @@ textarea {
   text-align: right;
 }
 
+.rt-preview p.rt-preview-jurisprudence-indented {
+  width: 78%;
+  margin-left: auto;
+  text-align: justify;
+}
+
 .rt-preview-block {
   display: grid;
   gap: 0.45rem;

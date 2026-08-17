@@ -93,6 +93,8 @@ export interface RtPreviewBlock {
   texto: string;
   anexos?: ProcessoAnexoResponse[];
   imagensFixas?: RtPreviewInlineImage[];
+  paragrafosAlinhadosDireita?: number[];
+  paragrafosRecuados?: number[];
 }
 
 export interface RtPreviewInlineImage {

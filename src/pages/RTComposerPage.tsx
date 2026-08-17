@@ -49,6 +49,7 @@ type BlockId =
     | "diferencas_salariais_acumulo_funcoes"
     | "diferencas_salariais_motorista_carreteiro_carregador"
     | "salario_a_latere"
+    | "integracao_aluguel_veiculo_particular_natureza_salarial"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -105,7 +106,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "desvio_funcao_atividade_efetivamente_exercida",
   "diferencas_salariais_acumulo_funcoes",
   "diferencas_salariais_motorista_carreteiro_carregador",
-  "salario_a_latere"
+  "salario_a_latere",
+  "integracao_aluguel_veiculo_particular_natureza_salarial"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -150,6 +152,8 @@ interface ComposerState {
   funcaoAdicional: string;
   formaRecebimento: string;
   valorMedioMensal: string;
+  valorAluguelVeiculo: string;
+  descricaoProvaAluguelVeiculo: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -194,6 +198,7 @@ interface PreviewBlock {
   content: string;
   anexos: ProcessoAnexoResponse[];
   imagensFixas: RtPreviewInlineImage[];
+  paragrafosRecuados: number[];
 }
 
 function renderInlineMarkdown(text: string): ReactNode {
@@ -302,11 +307,11 @@ function FixedPreviewImage({ image, token }: { image: RtPreviewInlineImage; toke
   return source ? <img src={source} alt={image.nomeOriginal} /> : null;
 }
 
-function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], imagensFixas: RtPreviewInlineImage[], renderAttachments: boolean, token: string, blockId: BlockId) {
+function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], imagensFixas: RtPreviewInlineImage[], renderAttachments: boolean, token: string, blockId: BlockId, paragrafosRecuados: number[]) {
   const paragraphs = content.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
   return paragraphs.map((paragraph, index) => (
     <Fragment key={`${paragraph}-${index}`}>
-      <p className={blockId === "diferencas_salariais_motorista_carreteiro_carregador" && /TRT\s*(?:da\s*)?(?:8ª|10ª|14ª)\s*Regi[aã]o/i.test(paragraph) ? "rt-preview-citation-right" : undefined}>
+      <p className={paragrafosRecuados.includes(index + 1) ? "rt-preview-jurisprudence-indented" : blockId === "diferencas_salariais_motorista_carreteiro_carregador" && /TRT\s*(?:da\s*)?(?:8ª|10ª|14ª)\s*Regi[aã]o/i.test(paragraph) ? "rt-preview-citation-right" : undefined}>
         {paragraph.split("\n").map((line, lineIndex) => (
           <Fragment key={`${line}-${lineIndex}`}>
             {lineIndex > 0 ? <br /> : null}
@@ -356,6 +361,8 @@ const initialState: ComposerState = {
   funcaoAdicional: "",
   formaRecebimento: "",
   valorMedioMensal: "",
+  valorAluguelVeiculo: "",
+  descricaoProvaAluguelVeiculo: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -418,6 +425,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "diferencas_salariais_acumulo_funcoes", title: "Diferenças salariais. Exercício de função de _____ e de _____", section: "Diferenças salariais" },
   { id: "diferencas_salariais_motorista_carreteiro_carregador", title: "Diferenças salariais. Exercício de função de motorista carreteiro e de carregador de caminhão", section: "Diferenças salariais" },
   { id: "salario_a_latere", title: "Salário a latere", section: "Diferenças salariais" },
+  { id: "integracao_aluguel_veiculo_particular_natureza_salarial", title: "Integração do aluguel do veículo particular. Natureza salarial", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -489,7 +497,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "remuneracao"
   ],
   diferencas_salariais_motorista_carreteiro_carregador: ["funcaoAdicional"],
-  salario_a_latere: ["formaRecebimento", "valorMedioMensal"]
+  salario_a_latere: ["formaRecebimento", "valorMedioMensal"],
+  integracao_aluguel_veiculo_particular_natureza_salarial: ["valorAluguelVeiculo", "descricaoProvaAluguelVeiculo"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -615,6 +624,8 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     funcaoAdicional: String(processo.dadosVariaveis?.diferencas_salariais_motorista_carreteiro_carregador?.funcaoAdicional ?? ""),
     formaRecebimento: String(processo.dadosVariaveis?.salario_a_latere?.formaRecebimento ?? ""),
     valorMedioMensal: String(processo.dadosVariaveis?.salario_a_latere?.valorMedioMensal ?? ""),
+    valorAluguelVeiculo: String(processo.dadosVariaveis?.integracao_aluguel_veiculo_particular_natureza_salarial?.valorAluguelVeiculo ?? ""),
+    descricaoProvaAluguelVeiculo: String(processo.dadosVariaveis?.integracao_aluguel_veiculo_particular_natureza_salarial?.descricaoProvaAluguelVeiculo ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
@@ -722,7 +733,8 @@ function buildPreviewBlocks(
     apiPreviewTexts: Partial<Record<BlockId, string>>,
     apiPreviewTitles: Partial<Record<BlockId, string>>,
     apiPreviewAttachments: Partial<Record<BlockId, ProcessoAnexoResponse[]>>,
-    apiPreviewFixedImages: Partial<Record<BlockId, RtPreviewInlineImage[]>>
+    apiPreviewFixedImages: Partial<Record<BlockId, RtPreviewInlineImage[]>>,
+    apiPreviewIndentedParagraphs: Partial<Record<BlockId, number[]>>
 ): PreviewBlock[] {
   const claimantName = claimants.length
       ? claimants.map((item) => item.nome).join(", ")
@@ -775,7 +787,8 @@ function buildPreviewBlocks(
         ? movePeriodTitleIntoContent(apiContent, apiPreviewTitles[id])
         : apiContent,
       anexos: apiPreviewAttachments[id] || [],
-      imagensFixas: apiPreviewFixedImages[id] || []
+      imagensFixas: apiPreviewFixedImages[id] || [],
+      paragrafosRecuados: apiPreviewIndentedParagraphs[id] || []
     };
   });
 }
@@ -804,6 +817,7 @@ export function RTComposerPage() {
   const [pendingDispensaDiscriminatoriaFiles, setPendingDispensaDiscriminatoriaFiles] = useState<File[]>([]);
   const [pendingDesvioCboFiles, setPendingDesvioCboFiles] = useState<File[]>([]);
   const [pendingDesvioProvasFiles, setPendingDesvioProvasFiles] = useState<File[]>([]);
+  const [pendingIntegracaoAluguelFiles, setPendingIntegracaoAluguelFiles] = useState<File[]>([]);
   const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
   const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
@@ -813,6 +827,7 @@ export function RTComposerPage() {
     title: string;
     anexos: ProcessoAnexoResponse[];
     imagensFixas: RtPreviewInlineImage[];
+    paragrafosRecuados: number[];
     loading: boolean;
     error: string;
   }>>>({});
@@ -864,6 +879,10 @@ export function RTComposerPage() {
       () => pendingDesvioProvasFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
       [pendingDesvioProvasFiles]
   );
+  const pendingIntegracaoAluguelPreviews = useMemo(
+      () => pendingIntegracaoAluguelFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
+      [pendingIntegracaoAluguelFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
@@ -873,7 +892,8 @@ export function RTComposerPage() {
     pendingDispensaDiscriminatoriaPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDesvioCboPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDesvioProvasPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews]);
+    pendingIntegracaoAluguelPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -896,6 +916,7 @@ export function RTComposerPage() {
         setPendingDispensaDiscriminatoriaFiles([]);
         setPendingDesvioCboFiles([]);
         setPendingDesvioProvasFiles([]);
+        setPendingIntegracaoAluguelFiles([]);
         setSiteEncerramentoInput("");
         setSitesEncerramentoAtividades([]);
         setSavedMessage("");
@@ -1012,6 +1033,7 @@ export function RTComposerPage() {
           title: "",
           anexos: [],
           imagensFixas: [],
+          paragrafosRecuados: [],
           loading: false,
           error: ""
       }])));
@@ -1026,6 +1048,7 @@ export function RTComposerPage() {
         title: current[id]?.title || "",
         anexos: current[id]?.anexos || [],
         imagensFixas: current[id]?.imagensFixas || [],
+        paragrafosRecuados: current[id]?.paragrafosRecuados || [],
         loading: true,
         error: ""
       }]))
@@ -1051,6 +1074,7 @@ export function RTComposerPage() {
                 title: block?.titulo || "",
                 anexos: normalizePreviewAttachments(block?.anexos),
                 imagensFixas: block?.imagensFixas || [],
+                paragrafosRecuados: block?.paragrafosRecuados || [],
                 loading: false,
                 error: ""
               }];
@@ -1066,6 +1090,7 @@ export function RTComposerPage() {
               title: "",
               anexos: current[id]?.anexos || [],
               imagensFixas: current[id]?.imagensFixas || [],
+              paragrafosRecuados: current[id]?.paragrafosRecuados || [],
               loading: false,
               error
             }]))
@@ -1099,9 +1124,14 @@ export function RTComposerPage() {
     return images;
   }, {});
 
+  const apiPreviewIndentedParagraphs = selectedApiBlocks.reduce<Partial<Record<BlockId, number[]>>>((paragraphs, id) => {
+    paragraphs[id] = apiPreviews[id]?.paragrafosRecuados || [];
+    return paragraphs;
+  }, {});
+
   const previewBlocks = useMemo(
-      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments, apiPreviewFixedImages),
-      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments, apiPreviewFixedImages]
+      () => buildPreviewBlocks(selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments, apiPreviewFixedImages, apiPreviewIndentedParagraphs),
+      [selectedClaimants, selectedDefendants, selectedLawyers, values, orderedSelectedBlocks, apiPreviewTexts, apiPreviewTitles, apiPreviewAttachments, apiPreviewFixedImages, apiPreviewIndentedParagraphs]
   );
 
   function handleChange(field: keyof ComposerState, value: string | string[]) {
@@ -1184,7 +1214,7 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial";
 
   async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId, grupo = "geral") {
     const files = Array.from(event.target.files || []);
@@ -1203,6 +1233,8 @@ export function RTComposerPage() {
         setPendingDesvioCboFiles((current) => [...current, ...files]);
       } else if (blockId === "desvio_funcao_atividade_efetivamente_exercida") {
         setPendingDesvioProvasFiles((current) => [...current, ...files]);
+      } else if (blockId === "integracao_aluguel_veiculo_particular_natureza_salarial") {
+        setPendingIntegracaoAluguelFiles((current) => [...current, ...files]);
       } else {
         setPendingDiferencasSalariaisFiles((current) => [...current, ...files]);
       }
@@ -1221,6 +1253,7 @@ export function RTComposerPage() {
           title: current[blockId]?.title || "",
           anexos: [...(current[blockId]?.anexos || []), ...uploaded],
           imagensFixas: current[blockId]?.imagensFixas || [],
+          paragrafosRecuados: current[blockId]?.paragrafosRecuados || [],
           loading: false,
           error: ""
         }
@@ -1277,6 +1310,10 @@ export function RTComposerPage() {
     }
   }
 
+  function handlePendingIntegracaoAluguelRemove(key: string) {
+    setPendingIntegracaoAluguelFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -1290,6 +1327,7 @@ export function RTComposerPage() {
     setPendingDispensaDiscriminatoriaFiles([]);
     setPendingDesvioCboFiles([]);
     setPendingDesvioProvasFiles([]);
+    setPendingIntegracaoAluguelFiles([]);
     setSavedMessage("");
   }
 
@@ -1433,6 +1471,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDesvioProvasFiles, "desvio_funcao_atividade_efetivamente_exercida", "provas");
         setPendingDesvioProvasFiles([]);
       }
+      if (pendingIntegracaoAluguelFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingIntegracaoAluguelFiles, "integracao_aluguel_veiculo_particular_natureza_salarial", "geral");
+        setPendingIntegracaoAluguelFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1472,7 +1515,8 @@ export function RTComposerPage() {
             title: latestBlock.titulo,
             content: latestBlock.texto,
             anexos: normalizePreviewAttachments(latestBlock.anexos),
-            imagensFixas: latestBlock.imagensFixas || []
+            imagensFixas: latestBlock.imagensFixas || [],
+            paragrafosRecuados: latestBlock.paragrafosRecuados || []
           } : block;
         });
       }
@@ -1485,7 +1529,8 @@ export function RTComposerPage() {
         desvio_funcao_atividade_efetivamente_exercida: [
           ...pendingDesvioCboFiles.map((file) => ({ file, grupo: "cbo" as const })),
           ...pendingDesvioProvasFiles.map((file) => ({ file, grupo: "provas" as const }))
-        ]
+        ],
+        integracao_aluguel_veiculo_particular_natureza_salarial: pendingIntegracaoAluguelFiles.map((file) => ({ file, grupo: "geral" }))
       });
       await exportToDocx(
           blocksForExport,
@@ -1908,6 +1953,31 @@ export function RTComposerPage() {
                                       })}
                                     </div>
                                 ) : null}
+                                {block.id === "integracao_aluguel_veiculo_particular_natureza_salarial" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar prova(s) do aluguel do veículo"}</span>
+                                        <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "integracao_aluguel_veiculo_particular_natureza_salarial")} />
+                                      </label>
+                                      {!processoId ? <small>As provas serão enviadas ao salvar a RT.</small> : null}
+                                      {apiPreviews.integracao_aluguel_veiculo_particular_natureza_salarial?.anexos.length || pendingIntegracaoAluguelPreviews.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {(apiPreviews.integracao_aluguel_veiculo_particular_natureza_salarial?.anexos || []).map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "integracao_aluguel_veiculo_particular_natureza_salarial")}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingIntegracaoAluguelPreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingIntegracaoAluguelRemove(key)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
                                       <div className="block-variable-fields">
@@ -1973,6 +2043,8 @@ export function RTComposerPage() {
                                         funcaoAdicional: "Função adicional exercida",
                                         formaRecebimento: "Forma de recebimento do valor 'por fora'",
                                         valorMedioMensal: "Valor médio mensal recebido 'por fora'",
+                                        valorAluguelVeiculo: "Valor do aluguel do veículo",
+                                        descricaoProvaAluguelVeiculo: "Descrição da prova do aluguel do veículo",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2028,6 +2100,7 @@ export function RTComposerPage() {
                                               : labels[field];
                                       const isMoney = block.id === "diferencas_salariais_acumulo_funcoes" && ["salarioFuncaoOriginal", "salarioFuncaoAcumulada", "remuneracao"].includes(field);
                                       const isLatereMoney = block.id === "salario_a_latere" && field === "valorMedioMensal";
+                                      const isVehicleRentalMoney = block.id === "integracao_aluguel_veiculo_particular_natureza_salarial" && field === "valorAluguelVeiculo";
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {fieldLabel}
@@ -2035,9 +2108,9 @@ export function RTComposerPage() {
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
                                             ) : (
                                                 <input
-                                                    type={isDate ? "date" : field === "remuneracao" || isMoney || isLatereMoney ? "number" : "text"}
-                                                    step={field === "remuneracao" || isMoney || isLatereMoney ? "0.01" : undefined}
-                                                    min={field === "remuneracao" || isMoney || isLatereMoney ? "0" : undefined}
+                                                    type={isDate ? "date" : field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "number" : "text"}
+                                                    step={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0.01" : undefined}
+                                                    min={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0" : undefined}
                                                     value={String(values[field] ?? "")}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
@@ -2070,8 +2143,9 @@ export function RTComposerPage() {
                           "baixa_ctps_tutela",
                           "responsabilidade_solidaria_grupo_economico",
                           "responsabilidade_subsidiaria_contrato_administrativo",
-                          "diferencas_salariais_piso_convencional"
-                        ].includes(block.id), session?.token || "", block.id)}
+                          "diferencas_salariais_piso_convencional",
+                          "integracao_aluguel_veiculo_particular_natureza_salarial"
+                        ].includes(block.id), session?.token || "", block.id, block.paragrafosRecuados)}
                       </section>
                   ))}
                 </article>
