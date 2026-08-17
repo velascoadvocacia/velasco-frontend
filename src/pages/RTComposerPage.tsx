@@ -46,6 +46,7 @@ type BlockId =
     | "dispensa_discriminatoria_reintegracao_ou_pagamento"
     | "dispensa_discriminatoria_danos_morais"
     | "desvio_funcao_atividade_efetivamente_exercida"
+    | "diferencas_salariais_acumulo_funcoes"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -99,7 +100,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "multa_art_477_clt",
   "dispensa_discriminatoria_reintegracao_ou_pagamento",
   "dispensa_discriminatoria_danos_morais",
-  "desvio_funcao_atividade_efetivamente_exercida"
+  "desvio_funcao_atividade_efetivamente_exercida",
+  "diferencas_salariais_acumulo_funcoes"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -140,6 +142,7 @@ interface ComposerState {
   dataContratacao: string;
   funcaoContrato: string;
   funcaoEfetivamenteExercida: string;
+  dataInicioAcumuloFuncao: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -342,6 +345,7 @@ const initialState: ComposerState = {
   dataContratacao: "",
   funcaoContrato: "",
   funcaoEfetivamenteExercida: "",
+  dataInicioAcumuloFuncao: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -401,6 +405,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dispensa_discriminatoria_reintegracao_ou_pagamento", title: "Dispensa discriminatória. Reintegração OU Pagamento do período de afastamento", section: "Verbas rescisórias" },
   { id: "dispensa_discriminatoria_danos_morais", title: "Dispensa discriminatória. Danos morais", section: "Verbas rescisórias" },
   { id: "desvio_funcao_atividade_efetivamente_exercida", title: "Desvio de função. Atividade efetivamente exercida pela parte autora", section: "Desvio de função" },
+  { id: "diferencas_salariais_acumulo_funcoes", title: "Diferenças salariais. Exercício de função de _____ e de _____", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -461,10 +466,22 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "clausulaConvencional",
     "cctReferencia",
     "redacaoClausula"
+  ],
+  diferencas_salariais_acumulo_funcoes: [
+    "funcaoContrato",
+    "funcaoEfetivamenteExercida",
+    "dataAdmissao",
+    "dataInicioAcumuloFuncao",
+    "salarioFuncaoOriginal",
+    "salarioFuncaoAcumulada",
+    "remuneracao"
   ]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
+  if (block.id === "diferencas_salariais_acumulo_funcoes") {
+    return `Diferenças salariais. Exercício de função de ${optional(values.funcaoContrato) || "_____"} e de ${optional(values.funcaoEfetivamenteExercida) || "_____"}`;
+  }
   if (block.id !== "contrato_aspectos_gerais") return block.title;
   return contractExtinctionOptions.find((option) => option.value === values.motivoExtincao)?.title || block.title;
 }
@@ -496,6 +513,17 @@ function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[
       : {}),
     ...(selectedBlocks.includes("dispensa_discriminatoria_reintegracao_ou_pagamento")
       ? { incluirJurisprudenciaDoenca: values.incluirJurisprudenciaDoenca }
+      : {}),
+    ...(selectedBlocks.includes("diferencas_salariais_acumulo_funcoes")
+      ? {
+          funcaoContratada: optional(values.funcaoContrato),
+          funcaoAcumulada: optional(values.funcaoEfetivamenteExercida),
+          dataAdmissao: optional(values.dataAdmissao),
+          dataInicioAcumuloFuncao: optional(values.dataInicioAcumuloFuncao),
+          salarioFuncaoContratada: optional(values.salarioFuncaoOriginal),
+          salarioFuncaoAcumulada: optional(values.salarioFuncaoAcumulada),
+          salarioAtualAutora: optional(values.remuneracao)
+        }
       : {})
   };
 }
@@ -569,6 +597,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     funcao: contrato?.funcaoExercida ?? "",
     funcaoContrato: contrato?.funcaoExercida ?? "",
     funcaoEfetivamenteExercida: String(processo.dadosVariaveis?.desvio_funcao_atividade_efetivamente_exercida?.funcaoEfetivamenteExercida ?? ""),
+    dataInicioAcumuloFuncao: String(processo.dadosVariaveis?.diferencas_salariais_acumulo_funcoes?.dataInicioAcumuloFuncao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
@@ -724,7 +753,7 @@ function buildPreviewBlocks(
       id,
       title: id === "contrato_aspectos_gerais"
         ? apiPreviewTitles[id] || blockTitle(definition, values)
-        : definition.title,
+        : blockTitle(definition, values),
       content: id === "periodo_sem_registro_ctps"
         ? movePeriodTitleIntoContent(apiContent, apiPreviewTitles[id])
         : apiContent,
@@ -1923,6 +1952,7 @@ export function RTComposerPage() {
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) => !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho"].includes(field)).map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
+                                        dataInicioAcumuloFuncao: "Data de início do acúmulo de função",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -1963,8 +1993,20 @@ export function RTComposerPage() {
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
-                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira"].includes(field);
-                                      const fieldLabel = block.id === "desvio_funcao_atividade_efetivamente_exercida" && field === "funcaoContrato" ? "Função registrada" : labels[field];
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao"].includes(field);
+                                      const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
+                                        funcaoContrato: "Função contratada",
+                                        funcaoEfetivamenteExercida: "Função acumulada",
+                                        salarioFuncaoOriginal: "Salário da função contratada",
+                                        salarioFuncaoAcumulada: "Salário da função acumulada",
+                                        remuneracao: "Salário atual da autora"
+                                      };
+                                      const fieldLabel = block.id === "desvio_funcao_atividade_efetivamente_exercida" && field === "funcaoContrato"
+                                          ? "Função registrada"
+                                          : block.id === "diferencas_salariais_acumulo_funcoes"
+                                              ? accumulationLabels[field] || labels[field]
+                                              : labels[field];
+                                      const isMoney = block.id === "diferencas_salariais_acumulo_funcoes" && ["salarioFuncaoOriginal", "salarioFuncaoAcumulada", "remuneracao"].includes(field);
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {fieldLabel}
@@ -1972,9 +2014,9 @@ export function RTComposerPage() {
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
                                             ) : (
                                                 <input
-                                                    type={isDate ? "date" : field === "remuneracao" ? "number" : "text"}
-                                                    step={field === "remuneracao" ? "0.01" : undefined}
-                                                    min={field === "remuneracao" ? "0" : undefined}
+                                                    type={isDate ? "date" : field === "remuneracao" || isMoney ? "number" : "text"}
+                                                    step={field === "remuneracao" || isMoney ? "0.01" : undefined}
+                                                    min={field === "remuneracao" || isMoney ? "0" : undefined}
                                                     value={String(values[field] ?? "")}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
