@@ -50,6 +50,7 @@ type BlockId =
     | "diferencas_salariais_motorista_carreteiro_carregador"
     | "salario_a_latere"
     | "integracao_aluguel_veiculo_particular_natureza_salarial"
+    | "dano_moral_atraso_salarial"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -107,7 +108,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "diferencas_salariais_acumulo_funcoes",
   "diferencas_salariais_motorista_carreteiro_carregador",
   "salario_a_latere",
-  "integracao_aluguel_veiculo_particular_natureza_salarial"
+  "integracao_aluguel_veiculo_particular_natureza_salarial",
+  "dano_moral_atraso_salarial"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -426,6 +428,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "diferencas_salariais_motorista_carreteiro_carregador", title: "Diferenças salariais. Exercício de função de motorista carreteiro e de carregador de caminhão", section: "Diferenças salariais" },
   { id: "salario_a_latere", title: "Salário a latere", section: "Diferenças salariais" },
   { id: "integracao_aluguel_veiculo_particular_natureza_salarial", title: "Integração do aluguel do veículo particular. Natureza salarial", section: "Diferenças salariais" },
+  { id: "dano_moral_atraso_salarial", title: "Dano moral por atraso salarial", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -818,6 +821,7 @@ export function RTComposerPage() {
   const [pendingDesvioCboFiles, setPendingDesvioCboFiles] = useState<File[]>([]);
   const [pendingDesvioProvasFiles, setPendingDesvioProvasFiles] = useState<File[]>([]);
   const [pendingIntegracaoAluguelFiles, setPendingIntegracaoAluguelFiles] = useState<File[]>([]);
+  const [pendingDanoMoralAtrasoFiles, setPendingDanoMoralAtrasoFiles] = useState<File[]>([]);
   const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
   const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
@@ -883,6 +887,10 @@ export function RTComposerPage() {
       () => pendingIntegracaoAluguelFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
       [pendingIntegracaoAluguelFiles]
   );
+  const pendingDanoMoralAtrasoPreviews = useMemo(
+      () => pendingDanoMoralAtrasoFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
+      [pendingDanoMoralAtrasoFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
@@ -893,7 +901,8 @@ export function RTComposerPage() {
     pendingDesvioCboPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDesvioProvasPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingIntegracaoAluguelPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews]);
+    pendingDanoMoralAtrasoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews, pendingDanoMoralAtrasoPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -917,6 +926,7 @@ export function RTComposerPage() {
         setPendingDesvioCboFiles([]);
         setPendingDesvioProvasFiles([]);
         setPendingIntegracaoAluguelFiles([]);
+        setPendingDanoMoralAtrasoFiles([]);
         setSiteEncerramentoInput("");
         setSitesEncerramentoAtividades([]);
         setSavedMessage("");
@@ -1214,7 +1224,7 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial" | "dano_moral_atraso_salarial";
 
   async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId, grupo = "geral") {
     const files = Array.from(event.target.files || []);
@@ -1235,6 +1245,8 @@ export function RTComposerPage() {
         setPendingDesvioProvasFiles((current) => [...current, ...files]);
       } else if (blockId === "integracao_aluguel_veiculo_particular_natureza_salarial") {
         setPendingIntegracaoAluguelFiles((current) => [...current, ...files]);
+      } else if (blockId === "dano_moral_atraso_salarial") {
+        setPendingDanoMoralAtrasoFiles((current) => [...current, ...files]);
       } else {
         setPendingDiferencasSalariaisFiles((current) => [...current, ...files]);
       }
@@ -1314,6 +1326,10 @@ export function RTComposerPage() {
     setPendingIntegracaoAluguelFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingDanoMoralAtrasoRemove(key: string) {
+    setPendingDanoMoralAtrasoFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -1328,6 +1344,7 @@ export function RTComposerPage() {
     setPendingDesvioCboFiles([]);
     setPendingDesvioProvasFiles([]);
     setPendingIntegracaoAluguelFiles([]);
+    setPendingDanoMoralAtrasoFiles([]);
     setSavedMessage("");
   }
 
@@ -1476,6 +1493,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingIntegracaoAluguelFiles, "integracao_aluguel_veiculo_particular_natureza_salarial", "geral");
         setPendingIntegracaoAluguelFiles([]);
       }
+      if (pendingDanoMoralAtrasoFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingDanoMoralAtrasoFiles, "dano_moral_atraso_salarial", "geral");
+        setPendingDanoMoralAtrasoFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1530,7 +1552,8 @@ export function RTComposerPage() {
           ...pendingDesvioCboFiles.map((file) => ({ file, grupo: "cbo" as const })),
           ...pendingDesvioProvasFiles.map((file) => ({ file, grupo: "provas" as const }))
         ],
-        integracao_aluguel_veiculo_particular_natureza_salarial: pendingIntegracaoAluguelFiles.map((file) => ({ file, grupo: "geral" }))
+        integracao_aluguel_veiculo_particular_natureza_salarial: pendingIntegracaoAluguelFiles.map((file) => ({ file, grupo: "geral" })),
+        dano_moral_atraso_salarial: pendingDanoMoralAtrasoFiles.map((file) => ({ file, grupo: "geral" }))
       });
       await exportToDocx(
           blocksForExport,
@@ -1978,6 +2001,31 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "dano_moral_atraso_salarial" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>{uploadingAttachments ? "Enviando..." : "Anexar prova(s) do atraso salarial"}</span>
+                                        <input type="file" accept="image/jpeg,image/png" multiple disabled={uploadingAttachments} onChange={(event) => handleAttachmentUpload(event, "dano_moral_atraso_salarial")} />
+                                      </label>
+                                      {!processoId ? <small>As provas serão enviadas ao salvar a RT.</small> : null}
+                                      {apiPreviews.dano_moral_atraso_salarial?.anexos.length || pendingDanoMoralAtrasoPreviews.length ? (
+                                          <div className="block-attachment-thumbnails">
+                                            {(apiPreviews.dano_moral_atraso_salarial?.anexos || []).map((anexo) => (
+                                                <div className="block-attachment-thumbnail" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <button type="button" aria-label={`Remover ${anexo.nomeOriginal}`} onClick={() => handleAttachmentRemove(anexo.id, "dano_moral_atraso_salarial")}>×</button>
+                                                </div>
+                                            ))}
+                                            {pendingDanoMoralAtrasoPreviews.map(({ file, key, url }) => (
+                                                <div className="block-attachment-thumbnail" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <button type="button" aria-label={`Remover ${file.name}`} onClick={() => handlePendingDanoMoralAtrasoRemove(key)}>×</button>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
                                       <div className="block-variable-fields">
@@ -2144,7 +2192,8 @@ export function RTComposerPage() {
                           "responsabilidade_solidaria_grupo_economico",
                           "responsabilidade_subsidiaria_contrato_administrativo",
                           "diferencas_salariais_piso_convencional",
-                          "integracao_aluguel_veiculo_particular_natureza_salarial"
+                          "integracao_aluguel_veiculo_particular_natureza_salarial",
+                          "dano_moral_atraso_salarial"
                         ].includes(block.id), session?.token || "", block.id, block.paragrafosRecuados)}
                       </section>
                   ))}
