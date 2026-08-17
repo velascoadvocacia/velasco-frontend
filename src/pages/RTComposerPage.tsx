@@ -48,6 +48,7 @@ type BlockId =
     | "desvio_funcao_atividade_efetivamente_exercida"
     | "diferencas_salariais_acumulo_funcoes"
     | "diferencas_salariais_motorista_carreteiro_carregador"
+    | "salario_a_latere"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -103,7 +104,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "dispensa_discriminatoria_danos_morais",
   "desvio_funcao_atividade_efetivamente_exercida",
   "diferencas_salariais_acumulo_funcoes",
-  "diferencas_salariais_motorista_carreteiro_carregador"
+  "diferencas_salariais_motorista_carreteiro_carregador",
+  "salario_a_latere"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -146,6 +148,8 @@ interface ComposerState {
   funcaoEfetivamenteExercida: string;
   dataInicioAcumuloFuncao: string;
   funcaoAdicional: string;
+  formaRecebimento: string;
+  valorMedioMensal: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -350,6 +354,8 @@ const initialState: ComposerState = {
   funcaoEfetivamenteExercida: "",
   dataInicioAcumuloFuncao: "",
   funcaoAdicional: "",
+  formaRecebimento: "",
+  valorMedioMensal: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -411,6 +417,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "desvio_funcao_atividade_efetivamente_exercida", title: "Desvio de função. Atividade efetivamente exercida pela parte autora", section: "Desvio de função" },
   { id: "diferencas_salariais_acumulo_funcoes", title: "Diferenças salariais. Exercício de função de _____ e de _____", section: "Diferenças salariais" },
   { id: "diferencas_salariais_motorista_carreteiro_carregador", title: "Diferenças salariais. Exercício de função de motorista carreteiro e de carregador de caminhão", section: "Diferenças salariais" },
+  { id: "salario_a_latere", title: "Salário a latere", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -481,7 +488,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
     "salarioFuncaoAcumulada",
     "remuneracao"
   ],
-  diferencas_salariais_motorista_carreteiro_carregador: ["funcaoAdicional"]
+  diferencas_salariais_motorista_carreteiro_carregador: ["funcaoAdicional"],
+  salario_a_latere: ["formaRecebimento", "valorMedioMensal"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -605,6 +613,8 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     funcaoEfetivamenteExercida: String(processo.dadosVariaveis?.desvio_funcao_atividade_efetivamente_exercida?.funcaoEfetivamenteExercida ?? ""),
     dataInicioAcumuloFuncao: String(processo.dadosVariaveis?.diferencas_salariais_acumulo_funcoes?.dataInicioAcumuloFuncao ?? ""),
     funcaoAdicional: String(processo.dadosVariaveis?.diferencas_salariais_motorista_carreteiro_carregador?.funcaoAdicional ?? ""),
+    formaRecebimento: String(processo.dadosVariaveis?.salario_a_latere?.formaRecebimento ?? ""),
+    valorMedioMensal: String(processo.dadosVariaveis?.salario_a_latere?.valorMedioMensal ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
@@ -1961,6 +1971,8 @@ export function RTComposerPage() {
                                         dataAdmissao: "Data de admissão",
                                         dataInicioAcumuloFuncao: "Data de início do acúmulo de função",
                                         funcaoAdicional: "Função adicional exercida",
+                                        formaRecebimento: "Forma de recebimento do valor 'por fora'",
+                                        valorMedioMensal: "Valor médio mensal recebido 'por fora'",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2015,6 +2027,7 @@ export function RTComposerPage() {
                                               ? accumulationLabels[field] || labels[field]
                                               : labels[field];
                                       const isMoney = block.id === "diferencas_salariais_acumulo_funcoes" && ["salarioFuncaoOriginal", "salarioFuncaoAcumulada", "remuneracao"].includes(field);
+                                      const isLatereMoney = block.id === "salario_a_latere" && field === "valorMedioMensal";
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {fieldLabel}
@@ -2022,9 +2035,9 @@ export function RTComposerPage() {
                                                 <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
                                             ) : (
                                                 <input
-                                                    type={isDate ? "date" : field === "remuneracao" || isMoney ? "number" : "text"}
-                                                    step={field === "remuneracao" || isMoney ? "0.01" : undefined}
-                                                    min={field === "remuneracao" || isMoney ? "0" : undefined}
+                                                    type={isDate ? "date" : field === "remuneracao" || isMoney || isLatereMoney ? "number" : "text"}
+                                                    step={field === "remuneracao" || isMoney || isLatereMoney ? "0.01" : undefined}
+                                                    min={field === "remuneracao" || isMoney || isLatereMoney ? "0" : undefined}
                                                     value={String(values[field] ?? "")}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
