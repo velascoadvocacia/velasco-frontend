@@ -109,7 +109,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "diferencas_salariais_motorista_carreteiro_carregador",
   "salario_a_latere",
   "integracao_aluguel_veiculo_particular_natureza_salarial",
-  "dano_moral_atraso_salarial"
+  "dano_moral_atraso_salarial",
+  "adicional_transferencia"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -156,6 +157,9 @@ interface ComposerState {
   valorMedioMensal: string;
   valorAluguelVeiculo: string;
   descricaoProvaAluguelVeiculo: string;
+  localidadeTransferencia: string;
+  dataInicioTransferencia: string;
+  dataFimTransferencia: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -365,6 +369,9 @@ const initialState: ComposerState = {
   valorMedioMensal: "",
   valorAluguelVeiculo: "",
   descricaoProvaAluguelVeiculo: "",
+  localidadeTransferencia: "",
+  dataInicioTransferencia: "",
+  dataFimTransferencia: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -429,6 +436,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "salario_a_latere", title: "Salário a latere", section: "Diferenças salariais" },
   { id: "integracao_aluguel_veiculo_particular_natureza_salarial", title: "Integração do aluguel do veículo particular. Natureza salarial", section: "Diferenças salariais" },
   { id: "dano_moral_atraso_salarial", title: "Dano moral por atraso salarial", section: "Diferenças salariais" },
+  { id: "adicional_transferencia", title: "Adicional de transferência", section: "Diferenças salariais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -501,7 +509,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   ],
   diferencas_salariais_motorista_carreteiro_carregador: ["funcaoAdicional"],
   salario_a_latere: ["formaRecebimento", "valorMedioMensal"],
-  integracao_aluguel_veiculo_particular_natureza_salarial: ["valorAluguelVeiculo", "descricaoProvaAluguelVeiculo"]
+  integracao_aluguel_veiculo_particular_natureza_salarial: ["valorAluguelVeiculo", "descricaoProvaAluguelVeiculo"],
+  adicional_transferencia: ["dataContratacao", "localidadeTransferencia", "dataInicioTransferencia", "dataFimTransferencia"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -629,6 +638,10 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     valorMedioMensal: String(processo.dadosVariaveis?.salario_a_latere?.valorMedioMensal ?? ""),
     valorAluguelVeiculo: String(processo.dadosVariaveis?.integracao_aluguel_veiculo_particular_natureza_salarial?.valorAluguelVeiculo ?? ""),
     descricaoProvaAluguelVeiculo: String(processo.dadosVariaveis?.integracao_aluguel_veiculo_particular_natureza_salarial?.descricaoProvaAluguelVeiculo ?? ""),
+    localidadeTransferencia: String(processo.dadosVariaveis?.adicional_transferencia?.localidadeTransferencia ?? ""),
+    dataInicioTransferencia: String(processo.dadosVariaveis?.adicional_transferencia?.dataInicioTransferencia ?? ""),
+    dataFimTransferencia: String(processo.dadosVariaveis?.adicional_transferencia?.dataFimTransferencia ?? ""),
+    dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
@@ -2083,6 +2096,11 @@ export function RTComposerPage() {
                                         </label>
                                       </div>
                                   ) : null}
+                                  {block.id === "adicional_transferencia" && values.dataInicioTransferencia && values.dataFimTransferencia ? (
+                                      <p>
+                                        DE {formatDate(values.dataInicioTransferencia)} a {formatDate(values.dataFimTransferencia)}
+                                      </p>
+                                  ) : null}
                                   <div className="form-grid block-variable-fields">
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) => !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho"].includes(field)).map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
@@ -2093,6 +2111,9 @@ export function RTComposerPage() {
                                         valorMedioMensal: "Valor médio mensal recebido 'por fora'",
                                         valorAluguelVeiculo: "Valor do aluguel do veículo",
                                         descricaoProvaAluguelVeiculo: "Descrição da prova do aluguel do veículo",
+                                        localidadeTransferencia: "Localidade da transferência",
+                                        dataInicioTransferencia: "Data de início da transferência",
+                                        dataFimTransferencia: "Data de fim da transferência",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2133,7 +2154,7 @@ export function RTComposerPage() {
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
                                       const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
-                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao"].includes(field);
+                                      const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
                                         funcaoEfetivamenteExercida: "Função acumulada",
