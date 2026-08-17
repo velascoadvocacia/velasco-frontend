@@ -52,6 +52,7 @@ type BlockId =
     | "integracao_aluguel_veiculo_particular_natureza_salarial"
     | "dano_moral_atraso_salarial"
     | "verbas_rescisorias_media_horas_extras_nao_paga"
+    | "jornada_trabalho"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -78,6 +79,20 @@ type BlockId =
     | "emissao_cat"
     | "danos_nao_emissao_cat"
     | "documentos";
+
+interface BlockRelationship {
+  children: readonly BlockId[];
+}
+
+const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
+  jornada_trabalho: { children: [] }
+};
+
+const parentByChild = Object.fromEntries(
+    Object.entries(blockRelationships).flatMap(([parentId, relationship]) =>
+        (relationship?.children || []).map((childId) => [childId, parentId as BlockId])
+    )
+) as Partial<Record<BlockId, BlockId>>;
 
 const BLOCKS_FROM_API: BlockId[] = [
   "qualificacao_reclamante",
@@ -112,7 +127,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "integracao_aluguel_veiculo_particular_natureza_salarial",
   "dano_moral_atraso_salarial",
   "adicional_transferencia",
-  "verbas_rescisorias_media_horas_extras_nao_paga"
+  "verbas_rescisorias_media_horas_extras_nao_paga",
+  "jornada_trabalho"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -162,6 +178,8 @@ interface ComposerState {
   localidadeTransferencia: string;
   dataInicioTransferencia: string;
   dataFimTransferencia: string;
+  descricaoJornadaMedia: string;
+  descricaoAusenciaControleJornada: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -374,6 +392,8 @@ const initialState: ComposerState = {
   localidadeTransferencia: "",
   dataInicioTransferencia: "",
   dataFimTransferencia: "",
+  descricaoJornadaMedia: "",
+  descricaoAusenciaControleJornada: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -440,6 +460,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dano_moral_atraso_salarial", title: "Dano moral por atraso salarial", section: "Diferenças salariais" },
   { id: "adicional_transferencia", title: "Adicional de transferência", section: "Diferenças salariais" },
   { id: "verbas_rescisorias_media_horas_extras_nao_paga", title: "Verbas rescisórias. Média de horas extras não paga", section: "Verbas rescisórias" },
+  { id: "jornada_trabalho", title: "Jornada de trabalho", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -449,9 +470,18 @@ const defaultBlocks: BlockId[] = [
 ];
 
 function orderSelectedBlocks(selectedBlocks: BlockId[]) {
-  return blockDefinitions
-    .filter((block) => selectedBlocks.includes(block.id))
-    .map((block) => block.id);
+  const ordered: BlockId[] = [];
+
+  blockDefinitions.forEach((block) => {
+    if (parentByChild[block.id]) return;
+    if (selectedBlocks.includes(block.id)) ordered.push(block.id);
+
+    (blockRelationships[block.id]?.children || []).forEach((childId) => {
+      if (selectedBlocks.includes(block.id) && selectedBlocks.includes(childId)) ordered.push(childId);
+    });
+  });
+
+  return ordered;
 }
 
 const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> = {
@@ -513,7 +543,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   diferencas_salariais_motorista_carreteiro_carregador: ["funcaoAdicional"],
   salario_a_latere: ["formaRecebimento", "valorMedioMensal"],
   integracao_aluguel_veiculo_particular_natureza_salarial: ["valorAluguelVeiculo", "descricaoProvaAluguelVeiculo"],
-  adicional_transferencia: ["dataContratacao", "localidadeTransferencia", "dataInicioTransferencia", "dataFimTransferencia"]
+  adicional_transferencia: ["dataContratacao", "localidadeTransferencia", "dataInicioTransferencia", "dataFimTransferencia"],
+  jornada_trabalho: ["descricaoJornadaMedia", "descricaoAusenciaControleJornada"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -644,6 +675,8 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     localidadeTransferencia: String(processo.dadosVariaveis?.adicional_transferencia?.localidadeTransferencia ?? ""),
     dataInicioTransferencia: String(processo.dadosVariaveis?.adicional_transferencia?.dataInicioTransferencia ?? ""),
     dataFimTransferencia: String(processo.dadosVariaveis?.adicional_transferencia?.dataFimTransferencia ?? ""),
+    descricaoJornadaMedia: String(processo.dadosVariaveis?.jornada_trabalho?.descricaoJornadaMedia ?? ""),
+    descricaoAusenciaControleJornada: String(processo.dadosVariaveis?.jornada_trabalho?.descricaoAusenciaControleJornada ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -1229,11 +1262,27 @@ export function RTComposerPage() {
   }
 
   function toggleBlock(blockId: BlockId) {
+    const parentId = parentByChild[blockId];
+    if (parentId && !selectedBlocks.includes(parentId)) return;
+
+    const isSelected = selectedBlocks.includes(blockId);
+    const childIds = blockRelationships[blockId]?.children || [];
     setSelectedBlocks((current) =>
-        current.includes(blockId)
-            ? current.filter((item) => item !== blockId)
+        isSelected
+            ? current.filter((item) => item !== blockId && !childIds.includes(item))
             : [...current, blockId]
     );
+    if (isSelected && childIds.length > 0) {
+      setValues((current) => {
+        const next = { ...current };
+        childIds.forEach((childId) => {
+          (variableFieldsByBlock[childId] || []).forEach((field) => {
+            next[field] = initialState[field] as never;
+          });
+        });
+        return next;
+      });
+    }
     if (blockId === "ausencia_pagamento_verbas_rescisorias") {
       setSelectedSeveranceChildren((current) => current.length ? [] : current);
     }
@@ -1808,8 +1857,11 @@ export function RTComposerPage() {
                     {Object.entries(blocksBySection).map(([section, blocks]) => (
                         <div className="block-section-group" key={section}>
                           <div className="block-section-title">{section}</div>
-                          {blocks.map((block) => (
-                              <div className={`block-accordion ${selectedBlocks.includes(block.id) ? "is-open" : ""}`} key={block.id}>
+                          {blocks.map((block) => {
+                            const parentId = parentByChild[block.id];
+                            if (parentId && !selectedBlocks.includes(parentId)) return null;
+                            return (
+                              <div className={`block-accordion ${selectedBlocks.includes(block.id) ? "is-open" : ""} ${parentId ? "is-child-block" : ""}`} key={block.id}>
                                 <label className="checkbox-card stacked">
                                   <input
                                       type="checkbox"
@@ -2162,6 +2214,8 @@ export function RTComposerPage() {
                                         localidadeTransferencia: "Localidade da transferência",
                                         dataInicioTransferencia: "Data de início da transferência",
                                         dataFimTransferencia: "Data de fim da transferência",
+                                        descricaoJornadaMedia: "Descrição da jornada média",
+                                        descricaoAusenciaControleJornada: "Descrição da ausência de controle de jornada",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2201,7 +2255,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2238,7 +2292,8 @@ export function RTComposerPage() {
                                   </div>
                                 </div>
                               </div>
-                          ))}
+                            );
+                          })}
                         </div>
                     ))}
                   </div>
