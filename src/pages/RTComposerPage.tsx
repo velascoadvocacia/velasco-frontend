@@ -55,6 +55,7 @@ type BlockId =
     | "jornada_trabalho"
     | "jornada_trabalho_horas_extras"
     | "jornada_trabalho_nulidade_banco_horas"
+    | "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -88,7 +89,11 @@ interface BlockRelationship {
 
 const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
   jornada_trabalho: {
-    children: ["jornada_trabalho_horas_extras", "jornada_trabalho_nulidade_banco_horas"]
+    children: [
+      "jornada_trabalho_horas_extras",
+      "jornada_trabalho_nulidade_banco_horas",
+      "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
+    ]
   }
 };
 
@@ -134,7 +139,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "verbas_rescisorias_media_horas_extras_nao_paga",
   "jornada_trabalho",
   "jornada_trabalho_horas_extras",
-  "jornada_trabalho_nulidade_banco_horas"
+  "jornada_trabalho_nulidade_banco_horas",
+  "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -471,6 +477,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho", title: "Jornada de trabalho", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_horas_extras", title: "a. Horas extras", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_nulidade_banco_horas", title: "b. Nulidade do banco de horas", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa", title: "c. Nulidade do acordo de compensação de jornada (‘‘semana inglesa’’)", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
