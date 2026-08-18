@@ -57,6 +57,7 @@ type BlockId =
     | "jornada_trabalho_nulidade_banco_horas"
     | "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa"
     | "jornada_trabalho_turnos_ininterruptos_revezamento"
+    | "jornada_trabalho_dias_descanso"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -94,7 +95,8 @@ const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
       "jornada_trabalho_horas_extras",
       "jornada_trabalho_nulidade_banco_horas",
       "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa",
-      "jornada_trabalho_turnos_ininterruptos_revezamento"
+      "jornada_trabalho_turnos_ininterruptos_revezamento",
+      "jornada_trabalho_dias_descanso"
     ]
   }
 };
@@ -143,7 +145,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_horas_extras",
   "jornada_trabalho_nulidade_banco_horas",
   "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa",
-  "jornada_trabalho_turnos_ininterruptos_revezamento"
+  "jornada_trabalho_turnos_ininterruptos_revezamento",
+  "jornada_trabalho_dias_descanso"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -482,6 +485,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_nulidade_banco_horas", title: "b. Nulidade do banco de horas", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa", title: "c. Nulidade do acordo de compensação de jornada (‘‘semana inglesa’’)", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_turnos_ininterruptos_revezamento", title: "a. Turnos ininterruptos de revezamento", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_dias_descanso", title: "e. Trabalho em dias de descanso", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
