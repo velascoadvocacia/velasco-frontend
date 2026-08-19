@@ -59,6 +59,7 @@ type BlockId =
     | "jornada_trabalho_turnos_ininterruptos_revezamento"
     | "jornada_trabalho_dias_descanso"
     | "jornada_trabalho_adicional_noturno"
+    | "jornada_trabalho_sobreaviso"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -98,7 +99,8 @@ const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
       "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa",
       "jornada_trabalho_turnos_ininterruptos_revezamento",
       "jornada_trabalho_dias_descanso",
-      "jornada_trabalho_adicional_noturno"
+      "jornada_trabalho_adicional_noturno",
+      "jornada_trabalho_sobreaviso"
     ]
   }
 };
@@ -149,7 +151,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_nulidade_acordo_compensacao_semana_inglesa",
   "jornada_trabalho_turnos_ininterruptos_revezamento",
   "jornada_trabalho_dias_descanso",
-  "jornada_trabalho_adicional_noturno"
+  "jornada_trabalho_adicional_noturno",
+  "jornada_trabalho_sobreaviso"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -203,6 +206,7 @@ interface ComposerState {
   descricaoAusenciaControleJornada: string;
   descricaoNulidadeBancoHoras: string;
   horarioTrabalhoNoturno: string;
+  descricaoChamadosSobreaviso: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -419,6 +423,7 @@ const initialState: ComposerState = {
   descricaoAusenciaControleJornada: "",
   descricaoNulidadeBancoHoras: "",
   horarioTrabalhoNoturno: "",
+  descricaoChamadosSobreaviso: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -492,6 +497,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_turnos_ininterruptos_revezamento", title: "a. Turnos ininterruptos de revezamento", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_dias_descanso", title: "e. Trabalho em dias de descanso", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_adicional_noturno", title: "f. Adicional noturno", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_sobreaviso", title: "g. Sobreaviso", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -577,7 +583,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   adicional_transferencia: ["dataContratacao", "localidadeTransferencia", "dataInicioTransferencia", "dataFimTransferencia"],
   jornada_trabalho: ["descricaoJornadaMedia", "descricaoAusenciaControleJornada"],
   jornada_trabalho_nulidade_banco_horas: ["descricaoNulidadeBancoHoras"],
-  jornada_trabalho_adicional_noturno: ["horarioTrabalhoNoturno"]
+  jornada_trabalho_adicional_noturno: ["horarioTrabalhoNoturno"],
+  jornada_trabalho_sobreaviso: ["descricaoChamadosSobreaviso"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -712,6 +719,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     descricaoAusenciaControleJornada: String(processo.dadosVariaveis?.jornada_trabalho?.descricaoAusenciaControleJornada ?? ""),
     descricaoNulidadeBancoHoras: String(processo.dadosVariaveis?.jornada_trabalho_nulidade_banco_horas?.descricaoNulidadeBancoHoras ?? ""),
     horarioTrabalhoNoturno: String(processo.dadosVariaveis?.jornada_trabalho_adicional_noturno?.horarioTrabalhoNoturno ?? ""),
+    descricaoChamadosSobreaviso: String(processo.dadosVariaveis?.jornada_trabalho_sobreaviso?.descricaoChamadosSobreaviso ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2253,6 +2261,7 @@ export function RTComposerPage() {
                                         descricaoAusenciaControleJornada: "Descrição da ausência de controle de jornada",
                                         descricaoNulidadeBancoHoras: "Descrição da nulidade do banco de horas",
                                         horarioTrabalhoNoturno: "Horário de trabalho noturno",
+                                        descricaoChamadosSobreaviso: "Descrição dos chamados em sobreaviso",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2292,7 +2301,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
