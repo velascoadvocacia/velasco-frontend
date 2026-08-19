@@ -820,6 +820,36 @@ textarea {
   text-align: justify;
 }
 
+.rt-preview-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.rt-preview-comparison-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.rt-preview-comparison-table th,
+.rt-preview-comparison-table td {
+  width: 50%;
+  padding: 0.75rem;
+  border: 1px solid #777;
+  overflow-wrap: anywhere;
+}
+
+.rt-preview-comparison-table th {
+  text-align: center;
+  font-weight: 700;
+}
+
+.rt-preview-comparison-table td {
+  vertical-align: top;
+  text-align: justify;
+  line-height: 1.6;
+}
+
 .rt-preview-block {
   display: grid;
   gap: 0.45rem;

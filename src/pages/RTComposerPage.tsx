@@ -60,6 +60,8 @@ type BlockId =
     | "jornada_trabalho_dias_descanso"
     | "jornada_trabalho_adicional_noturno"
     | "jornada_trabalho_sobreaviso"
+    | "jornada_trabalho_intervalo_interjornada"
+    | "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -100,7 +102,9 @@ const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
       "jornada_trabalho_turnos_ininterruptos_revezamento",
       "jornada_trabalho_dias_descanso",
       "jornada_trabalho_adicional_noturno",
-      "jornada_trabalho_sobreaviso"
+      "jornada_trabalho_sobreaviso",
+      "jornada_trabalho_intervalo_interjornada",
+      "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
     ]
   }
 };
@@ -152,7 +156,9 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_turnos_ininterruptos_revezamento",
   "jornada_trabalho_dias_descanso",
   "jornada_trabalho_adicional_noturno",
-  "jornada_trabalho_sobreaviso"
+  "jornada_trabalho_sobreaviso",
+  "jornada_trabalho_intervalo_interjornada",
+  "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -207,6 +213,7 @@ interface ComposerState {
   descricaoNulidadeBancoHoras: string;
   horarioTrabalhoNoturno: string;
   descricaoChamadosSobreaviso: string;
+  descricaoSupressaoIntervaloInterjornada: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -360,18 +367,73 @@ function FixedPreviewImage({ image, token }: { image: RtPreviewInlineImage; toke
   return source ? <img src={source} alt={image.nomeOriginal} /> : null;
 }
 
+function parsePreviewTable(paragraph: string) {
+  const lines = paragraph.split("\n").map((line) => line.trim()).filter(Boolean);
+  const parseCells = (line: string) => line.replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
+  const separatorIndex = lines.findIndex((line) => {
+    const cells = parseCells(line);
+    return cells.length === 2 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+  });
+  if (separatorIndex < 1) return null;
+
+  const headers = parseCells(lines[separatorIndex - 1]);
+  if (headers.length !== 2) return null;
+
+  const body: string[][] = [];
+  let endIndex = separatorIndex + 1;
+  while (endIndex < lines.length && lines[endIndex].includes("|")) {
+    const row = parseCells(lines[endIndex]);
+    if (row.length !== 2) break;
+    if (row.some(Boolean)) body.push(row);
+    endIndex += 1;
+  }
+  if (body.length === 0) return null;
+
+  return {
+    before: lines.slice(0, separatorIndex - 1).join("\n"),
+    headers,
+    body,
+    after: lines.slice(endIndex).join("\n")
+  };
+}
+
 function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], imagensFixas: RtPreviewInlineImage[], renderAttachments: boolean, token: string, blockId: BlockId, paragrafosRecuados: number[]) {
   const paragraphs = content.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
-  return paragraphs.map((paragraph, index) => (
-    <Fragment key={`${paragraph}-${index}`}>
-      <p className={paragrafosRecuados.includes(index + 1) ? "rt-preview-jurisprudence-indented" : blockId === "diferencas_salariais_motorista_carreteiro_carregador" && /TRT\s*(?:da\s*)?(?:8ª|10ª|14ª)\s*Regi[aã]o/i.test(paragraph) ? "rt-preview-citation-right" : undefined}>
-        {paragraph.split("\n").map((line, lineIndex) => (
-          <Fragment key={`${line}-${lineIndex}`}>
-            {lineIndex > 0 ? <br /> : null}
-            {renderInlineMarkdown(line)}
-          </Fragment>
-        ))}
-      </p>
+  return paragraphs.map((paragraph, index) => {
+    const table = blockId === "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
+      ? parsePreviewTable(paragraph)
+      : null;
+    return (
+      <Fragment key={`${paragraph}-${index}`}>
+      {table ? (
+        <>
+          {table.before ? <p>{renderInlineMarkdown(table.before)}</p> : null}
+          <div className="rt-preview-table-wrapper">
+            <table className="rt-preview-comparison-table">
+              <thead>
+                <tr>{table.headers.map((header) => <th key={header}>{renderInlineMarkdown(header)}</th>)}</tr>
+              </thead>
+              <tbody>
+                {table.body.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((cell, cellIndex) => <td key={cellIndex}>{renderInlineMarkdown(cell)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {table.after ? <p>{renderInlineMarkdown(table.after)}</p> : null}
+        </>
+      ) : (
+        <p className={paragrafosRecuados.includes(index + 1) ? "rt-preview-jurisprudence-indented" : blockId === "diferencas_salariais_motorista_carreteiro_carregador" && /TRT\s*(?:da\s*)?(?:8ª|10ª|14ª)\s*Regi[aã]o/i.test(paragraph) ? "rt-preview-citation-right" : undefined}>
+          {paragraph.split("\n").map((line, lineIndex) => (
+            <Fragment key={`${line}-${lineIndex}`}>
+              {lineIndex > 0 ? <br /> : null}
+              {renderInlineMarkdown(line)}
+            </Fragment>
+          ))}
+        </p>
+      )}
       {renderAttachments && anexos.some((anexo) => (anexo.afterParagraph || 1) === index + 1) ? (
         <div className="rt-preview-attachments">
           {anexos.filter((anexo) => (anexo.afterParagraph || 1) === index + 1).map((anexo) => (
@@ -384,8 +446,9 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], im
           <FixedPreviewImage image={imagem} token={token} />
         </div>
       ))}
-    </Fragment>
-  ));
+      </Fragment>
+    );
+  });
 }
 
 const initialState: ComposerState = {
@@ -424,6 +487,7 @@ const initialState: ComposerState = {
   descricaoNulidadeBancoHoras: "",
   horarioTrabalhoNoturno: "",
   descricaoChamadosSobreaviso: "",
+  descricaoSupressaoIntervaloInterjornada: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -498,6 +562,8 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_dias_descanso", title: "e. Trabalho em dias de descanso", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_adicional_noturno", title: "f. Adicional noturno", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_sobreaviso", title: "g. Sobreaviso", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_intervalo_interjornada", title: "h. Intervalo interjornada", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada", title: "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -584,7 +650,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   jornada_trabalho: ["descricaoJornadaMedia", "descricaoAusenciaControleJornada"],
   jornada_trabalho_nulidade_banco_horas: ["descricaoNulidadeBancoHoras"],
   jornada_trabalho_adicional_noturno: ["horarioTrabalhoNoturno"],
-  jornada_trabalho_sobreaviso: ["descricaoChamadosSobreaviso"]
+  jornada_trabalho_sobreaviso: ["descricaoChamadosSobreaviso"],
+  jornada_trabalho_intervalo_interjornada: ["descricaoSupressaoIntervaloInterjornada"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -720,6 +787,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     descricaoNulidadeBancoHoras: String(processo.dadosVariaveis?.jornada_trabalho_nulidade_banco_horas?.descricaoNulidadeBancoHoras ?? ""),
     horarioTrabalhoNoturno: String(processo.dadosVariaveis?.jornada_trabalho_adicional_noturno?.horarioTrabalhoNoturno ?? ""),
     descricaoChamadosSobreaviso: String(processo.dadosVariaveis?.jornada_trabalho_sobreaviso?.descricaoChamadosSobreaviso ?? ""),
+    descricaoSupressaoIntervaloInterjornada: String(processo.dadosVariaveis?.jornada_trabalho_intervalo_interjornada?.descricaoSupressaoIntervaloInterjornada ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2262,6 +2330,7 @@ export function RTComposerPage() {
                                         descricaoNulidadeBancoHoras: "Descrição da nulidade do banco de horas",
                                         horarioTrabalhoNoturno: "Horário de trabalho noturno",
                                         descricaoChamadosSobreaviso: "Descrição dos chamados em sobreaviso",
+                                        descricaoSupressaoIntervaloInterjornada: "Descrição da supressão do intervalo interjornada",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2301,7 +2370,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2322,7 +2391,12 @@ export function RTComposerPage() {
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {fieldLabel}
                                             {multiline ? (
-                                                <textarea rows={4} value={String(values[field] ?? "")} onChange={(event) => handleChange(field, event.target.value)} />
+                                                <textarea
+                                                    rows={4}
+                                                    value={String(values[field] ?? "")}
+                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : undefined}
+                                                    onChange={(event) => handleChange(field, event.target.value)}
+                                                />
                                             ) : (
                                                 <input
                                                     type={isDate ? "date" : field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "number" : "text"}
