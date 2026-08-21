@@ -77,6 +77,7 @@ type BlockId =
     | "periculosidade_tanque_suplementar"
     | "dano_moral_cobranca_abusiva_metas"
     | "dano_moral_assedio_moral"
+    | "dano_moral_limitacao_banheiro"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -192,7 +193,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "adicional_periculosidade",
   "periculosidade_tanque_suplementar",
   "dano_moral_cobranca_abusiva_metas",
-  "dano_moral_assedio_moral"
+  "dano_moral_assedio_moral",
+  "dano_moral_limitacao_banheiro"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -267,6 +269,7 @@ interface ComposerState {
   descricaoExposicaoInsalubridade: string;
   descricaoExposicaoPericulosidade: string;
   capacidadeTotalTanquesDiesel: string;
+  descricaoLimitacaoUsoBanheiro: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -565,6 +568,7 @@ const initialState: ComposerState = {
   descricaoExposicaoInsalubridade: "",
   descricaoExposicaoPericulosidade: "",
   capacidadeTotalTanquesDiesel: "",
+  descricaoLimitacaoUsoBanheiro: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -656,6 +660,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "periculosidade_tanque_suplementar", title: "Adicional de periculosidade. Tanque suplementar. Lei n.º 14.766/2023", section: "Adicional de periculosidade" },
   { id: "dano_moral_cobranca_abusiva_metas", title: "Dano moral pela cobrança abusiva de metas", section: "Danos morais" },
   { id: "dano_moral_assedio_moral", title: "Dano moral por assédio moral", section: "Danos morais" },
+  { id: "dano_moral_limitacao_banheiro", title: "Dano moral por limitação à utilização do banheiro", section: "Danos morais" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -753,7 +758,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   convenio_medico: ["clausulaCctConvenioMedico", "identificacaoCctConvenioMedico", "textoClausulaConvenioMedico"],
   adicional_insalubridade: ["descricaoExposicaoInsalubridade"],
   adicional_periculosidade: ["descricaoExposicaoPericulosidade"],
-  periculosidade_tanque_suplementar: ["capacidadeTotalTanquesDiesel", "dataAdmissao"]
+  periculosidade_tanque_suplementar: ["capacidadeTotalTanquesDiesel", "dataAdmissao"],
+  dano_moral_limitacao_banheiro: ["descricaoLimitacaoUsoBanheiro"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -912,6 +918,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     descricaoExposicaoInsalubridade: String(processo.dadosVariaveis?.adicional_insalubridade?.descricaoExposicaoInsalubridade ?? ""),
     descricaoExposicaoPericulosidade: String(processo.dadosVariaveis?.adicional_periculosidade?.descricaoExposicaoPericulosidade ?? ""),
     capacidadeTotalTanquesDiesel: String(processo.dadosVariaveis?.periculosidade_tanque_suplementar?.capacidadeTotalTanquesDiesel ?? ""),
+    descricaoLimitacaoUsoBanheiro: String(processo.dadosVariaveis?.dano_moral_limitacao_banheiro?.descricaoLimitacaoUsoBanheiro ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.periculosidade_tanque_suplementar?.dataAdmissao ?? ""),
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2719,6 +2726,7 @@ export function RTComposerPage() {
                                         descricaoExposicaoInsalubridade: "Descrição da exposição à insalubridade",
                                         descricaoExposicaoPericulosidade: "Descrição da exposição à periculosidade",
                                         capacidadeTotalTanquesDiesel: "Capacidade total dos tanques de óleo diesel (litros)",
+                                        descricaoLimitacaoUsoBanheiro: "Descrição da limitação ao uso do banheiro",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2758,7 +2766,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico", "descricaoExposicaoInsalubridade", "descricaoExposicaoPericulosidade"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico", "descricaoExposicaoInsalubridade", "descricaoExposicaoPericulosidade", "descricaoLimitacaoUsoBanheiro"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2783,7 +2791,7 @@ export function RTComposerPage() {
                                                 <textarea
                                                     rows={4}
                                                     value={String(values[field] ?? "")}
-                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : field === "descricaoExposicaoInsalubridade" ? "Descreva as atividades, agentes insalubres, frequência da exposição, ambiente e ausência ou insuficiência de proteção" : field === "descricaoExposicaoPericulosidade" ? "Descreva as atividades, agentes perigosos, frequência da exposição, ambiente e condições de risco" : undefined}
+                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : field === "descricaoExposicaoInsalubridade" ? "Descreva as atividades, agentes insalubres, frequência da exposição, ambiente e ausência ou insuficiência de proteção" : field === "descricaoExposicaoPericulosidade" ? "Descreva as atividades, agentes perigosos, frequência da exposição, ambiente e condições de risco" : field === "descricaoLimitacaoUsoBanheiro" ? "Descreva como ocorria o controle, o limite de tempo ou de frequência e as consequências para a parte autora" : undefined}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
                                             ) : (
