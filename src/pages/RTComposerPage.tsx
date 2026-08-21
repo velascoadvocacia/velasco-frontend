@@ -66,6 +66,7 @@ type BlockId =
     | "jornada_trabalho_inconstitucionalidade_tempo_espera"
     | "jornada_trabalho_dano_moral_jornada_extenuante"
     | "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+    | "meio_ambiente_trabalho_nocivo_saude"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -170,7 +171,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_intervalo_intrajornada",
   "jornada_trabalho_inconstitucionalidade_tempo_espera",
   "jornada_trabalho_dano_moral_jornada_extenuante",
-  "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+  "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h",
+  "meio_ambiente_trabalho_nocivo_saude"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -228,6 +230,7 @@ interface ComposerState {
   descricaoSupressaoIntervaloInterjornada: string;
   horasDiariasIntervaloIntrajornada: string;
   mediaHorasJornadaDiaria: string;
+  descricaoAmbienteTrabalhoNocivo: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -507,6 +510,7 @@ const initialState: ComposerState = {
   descricaoSupressaoIntervaloInterjornada: "",
   horasDiariasIntervaloIntrajornada: "",
   mediaHorasJornadaDiaria: "",
+  descricaoAmbienteTrabalhoNocivo: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -587,6 +591,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_inconstitucionalidade_tempo_espera", title: "k. Inconstitucionalidade do tempo de espera", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_dano_moral_jornada_extenuante", title: "l. Dano moral pelo cumprimento de jornada extenuante", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h", title: "m. Inconstitucionalidade da jornada habitual de 12h diárias", section: "Jornada de trabalho" },
+  { id: "meio_ambiente_trabalho_nocivo_saude", title: "Meio ambiente de trabalho nocivo à saúde", section: "Meio ambiente de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -676,7 +681,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   jornada_trabalho_sobreaviso: ["descricaoChamadosSobreaviso"],
   jornada_trabalho_intervalo_interjornada: ["descricaoSupressaoIntervaloInterjornada"],
   jornada_trabalho_intervalo_intrajornada: ["horasDiariasIntervaloIntrajornada"],
-  jornada_trabalho_dano_moral_jornada_extenuante: ["mediaHorasJornadaDiaria"]
+  jornada_trabalho_dano_moral_jornada_extenuante: ["mediaHorasJornadaDiaria"],
+  meio_ambiente_trabalho_nocivo_saude: ["descricaoAmbienteTrabalhoNocivo"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -815,6 +821,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     descricaoSupressaoIntervaloInterjornada: String(processo.dadosVariaveis?.jornada_trabalho_intervalo_interjornada?.descricaoSupressaoIntervaloInterjornada ?? ""),
     horasDiariasIntervaloIntrajornada: String(processo.dadosVariaveis?.jornada_trabalho_intervalo_intrajornada?.horasDiariasIntervaloIntrajornada ?? ""),
     mediaHorasJornadaDiaria: String(processo.dadosVariaveis?.jornada_trabalho_dano_moral_jornada_extenuante?.mediaHorasJornadaDiaria ?? ""),
+    descricaoAmbienteTrabalhoNocivo: String(processo.dadosVariaveis?.meio_ambiente_trabalho_nocivo_saude?.descricaoAmbienteTrabalhoNocivo ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2360,6 +2367,7 @@ export function RTComposerPage() {
                                         descricaoSupressaoIntervaloInterjornada: "Descrição da supressão do intervalo interjornada",
                                         horasDiariasIntervaloIntrajornada: "Total de horas diárias de intervalo intrajornada",
                                         mediaHorasJornadaDiaria: "Média de horas trabalhadas por dia",
+                                        descricaoAmbienteTrabalhoNocivo: "Descrição do ambiente de trabalho nocivo",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2399,7 +2407,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2423,7 +2431,7 @@ export function RTComposerPage() {
                                                 <textarea
                                                     rows={4}
                                                     value={String(values[field] ?? "")}
-                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : undefined}
+                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : undefined}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
                                             ) : (
