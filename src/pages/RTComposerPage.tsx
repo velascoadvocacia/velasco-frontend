@@ -72,6 +72,7 @@ type BlockId =
     | "vale_alimentacao"
     | "seguro_vida"
     | "convenio_medico"
+    | "adicional_insalubridade"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -182,7 +183,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "diarias_viagem",
   "vale_alimentacao",
   "seguro_vida",
-  "convenio_medico"
+  "convenio_medico",
+  "adicional_insalubridade"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -254,6 +256,7 @@ interface ComposerState {
   clausulaCctConvenioMedico: string;
   identificacaoCctConvenioMedico: string;
   textoClausulaConvenioMedico: string;
+  descricaoExposicaoInsalubridade: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -549,6 +552,7 @@ const initialState: ComposerState = {
   clausulaCctConvenioMedico: "",
   identificacaoCctConvenioMedico: "",
   textoClausulaConvenioMedico: "",
+  descricaoExposicaoInsalubridade: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -635,6 +639,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "vale_alimentacao", title: "Vale-alimentação", section: "Vale-alimentação" },
   { id: "seguro_vida", title: "Seguro de vida", section: "Seguro de vida" },
   { id: "convenio_medico", title: "Convênio médico", section: "Convênio médico" },
+  { id: "adicional_insalubridade", title: "Adicional de insalubridade", section: "Adicional de insalubridade" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -729,7 +734,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   diarias_viagem: ["clausulaCctDiariasViagem", "identificacaoCctDiariasViagem", "textoClausulaDiariasViagem", "mediaViagensMensais", "criterioProvaDiariasViagem"],
   vale_alimentacao: ["clausulaCctValeAlimentacao", "identificacaoCctValeAlimentacao", "textoClausulaValeAlimentacao"],
   seguro_vida: ["clausulaCctSeguroVida", "identificacaoCctSeguroVida"],
-  convenio_medico: ["clausulaCctConvenioMedico", "identificacaoCctConvenioMedico", "textoClausulaConvenioMedico"]
+  convenio_medico: ["clausulaCctConvenioMedico", "identificacaoCctConvenioMedico", "textoClausulaConvenioMedico"],
+  adicional_insalubridade: ["descricaoExposicaoInsalubridade"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -885,6 +891,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     clausulaCctConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.clausulaCctConvenioMedico ?? ""),
     identificacaoCctConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.identificacaoCctConvenioMedico ?? ""),
     textoClausulaConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.textoClausulaConvenioMedico ?? ""),
+    descricaoExposicaoInsalubridade: String(processo.dadosVariaveis?.adicional_insalubridade?.descricaoExposicaoInsalubridade ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2677,6 +2684,7 @@ export function RTComposerPage() {
                                         clausulaCctConvenioMedico: "Cláusula da CCT",
                                         identificacaoCctConvenioMedico: "Identificação da CCT",
                                         textoClausulaConvenioMedico: "Conteúdo da cláusula",
+                                        descricaoExposicaoInsalubridade: "Descrição da exposição à insalubridade",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2716,7 +2724,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico", "descricaoExposicaoInsalubridade"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2740,7 +2748,7 @@ export function RTComposerPage() {
                                                 <textarea
                                                     rows={4}
                                                     value={String(values[field] ?? "")}
-                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : undefined}
+                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : field === "descricaoExposicaoInsalubridade" ? "Descreva as atividades, agentes insalubres, frequência da exposição, ambiente e ausência ou insuficiência de proteção" : undefined}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
                                             ) : (
