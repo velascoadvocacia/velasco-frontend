@@ -67,6 +67,7 @@ type BlockId =
     | "jornada_trabalho_dano_moral_jornada_extenuante"
     | "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
     | "meio_ambiente_trabalho_nocivo_saude"
+    | "ausencia_depositos_fgts"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -172,7 +173,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_inconstitucionalidade_tempo_espera",
   "jornada_trabalho_dano_moral_jornada_extenuante",
   "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h",
-  "meio_ambiente_trabalho_nocivo_saude"
+  "meio_ambiente_trabalho_nocivo_saude",
+  "ausencia_depositos_fgts"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -592,6 +594,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_dano_moral_jornada_extenuante", title: "l. Dano moral pelo cumprimento de jornada extenuante", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h", title: "m. Inconstitucionalidade da jornada habitual de 12h diárias", section: "Jornada de trabalho" },
   { id: "meio_ambiente_trabalho_nocivo_saude", title: "Meio ambiente de trabalho nocivo à saúde", section: "Meio ambiente de trabalho" },
+  { id: "ausencia_depositos_fgts", title: "Ausência de depósitos de FGTS", section: "FGTS" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -838,7 +841,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
   };
 }
 
-type ExportImageFile = { file: File; grupo: "geral" | "cbo" | "provas" };
+type ExportImageFile = { file: File; grupo: "geral" | "cbo" | "provas" | "provasExtratoFgts" };
 
 async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: Partial<Record<BlockId, ExportImageFile[]>>) {
   const filesByBlock: Partial<Record<BlockId, ExportImageFile[]>> = {};
@@ -846,6 +849,7 @@ async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: 
     if (!block.anexos.length && !pendingFilesByBlock[block.id]?.length) continue;
     filesByBlock[block.id] = [...(pendingFilesByBlock[block.id] || [])];
     for (const anexo of block.anexos) {
+      if (anexo.id < 0) continue;
       const response = await fetch(anexo.url);
       if (!response.ok) throw new Error(`Não foi possível baixar o anexo ${anexo.nomeOriginal} para exportação.`);
       const blob = await response.blob();
@@ -1017,6 +1021,7 @@ export function RTComposerPage() {
   const [pendingIntegracaoAluguelFiles, setPendingIntegracaoAluguelFiles] = useState<File[]>([]);
   const [pendingDanoMoralAtrasoFiles, setPendingDanoMoralAtrasoFiles] = useState<File[]>([]);
   const [pendingTrctMediaHorasFiles, setPendingTrctMediaHorasFiles] = useState<File[]>([]);
+  const [pendingExtratoFgtsFiles, setPendingExtratoFgtsFiles] = useState<File[]>([]);
   const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
   const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
@@ -1090,6 +1095,10 @@ export function RTComposerPage() {
       () => pendingTrctMediaHorasFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
       [pendingTrctMediaHorasFiles]
   );
+  const pendingExtratoFgtsPreviews = useMemo(
+      () => pendingExtratoFgtsFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
+      [pendingExtratoFgtsFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
@@ -1102,7 +1111,8 @@ export function RTComposerPage() {
     pendingIntegracaoAluguelPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingDanoMoralAtrasoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingTrctMediaHorasPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews, pendingDanoMoralAtrasoPreviews, pendingTrctMediaHorasPreviews]);
+    pendingExtratoFgtsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews, pendingDanoMoralAtrasoPreviews, pendingTrctMediaHorasPreviews, pendingExtratoFgtsPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1128,6 +1138,7 @@ export function RTComposerPage() {
         setPendingIntegracaoAluguelFiles([]);
         setPendingDanoMoralAtrasoFiles([]);
         setPendingTrctMediaHorasFiles([]);
+        setPendingExtratoFgtsFiles([]);
         setSiteEncerramentoInput("");
         setSitesEncerramentoAtividades([]);
         setSavedMessage("");
@@ -1326,7 +1337,22 @@ export function RTComposerPage() {
   }, {});
 
   const apiPreviewAttachments = selectedApiBlocks.reduce<Partial<Record<BlockId, ProcessoAnexoResponse[]>>>((attachments, id) => {
-    attachments[id] = apiPreviews[id]?.anexos || [];
+    attachments[id] = [
+      ...(apiPreviews[id]?.anexos || []),
+      ...(id === "ausencia_depositos_fgts" ? pendingExtratoFgtsPreviews.map(({ file, url }, index) => ({
+        id: -(index + 1),
+        processoId: processoId ? Number(processoId) : 0,
+        blocoId: "ausencia_depositos_fgts",
+        grupo: "provasExtratoFgts" as const,
+        ordem: (apiPreviews[id]?.anexos.length || 0) + index,
+        afterParagraph: 1,
+        nomeOriginal: file.name,
+        contentType: file.type,
+        tamanhoBytes: file.size,
+        url,
+        dataUpload: ""
+      })) : [])
+    ];
     return attachments;
   }, {});
 
@@ -1441,12 +1467,16 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial" | "dano_moral_atraso_salarial" | "verbas_rescisorias_media_horas_extras_nao_paga";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial" | "dano_moral_atraso_salarial" | "verbas_rescisorias_media_horas_extras_nao_paga" | "ausencia_depositos_fgts";
 
   async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId, grupo = "geral") {
     const files = Array.from(event.target.files || []);
     event.target.value = "";
     if (!files.length) return;
+    if (blockId === "ausencia_depositos_fgts") {
+      setPendingExtratoFgtsFiles((current) => [...current, ...files]);
+      return;
+    }
     if (!processoId) {
       if (blockId === "baixa_ctps_tutela") {
         setPendingCtpsFiles((current) => [...current, ...files]);
@@ -1553,6 +1583,32 @@ export function RTComposerPage() {
     setPendingTrctMediaHorasFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
   }
 
+  function handlePendingExtratoFgtsRemove(key: string) {
+    setPendingExtratoFgtsFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
+  function movePendingExtratoFgts(index: number, direction: -1 | 1) {
+    setPendingExtratoFgtsFiles((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function movePersistedExtratoFgts(index: number, direction: -1 | 1) {
+    setApiPreviews((current) => {
+      const preview = current.ausencia_depositos_fgts;
+      if (!preview) return current;
+      const target = index + direction;
+      if (target < 0 || target >= preview.anexos.length) return current;
+      const anexos = [...preview.anexos];
+      [anexos[index], anexos[target]] = [anexos[target], anexos[index]];
+      return { ...current, ausencia_depositos_fgts: { ...preview, anexos: anexos.map((anexo, ordem) => ({ ...anexo, ordem })) } };
+    });
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -1569,6 +1625,7 @@ export function RTComposerPage() {
     setPendingIntegracaoAluguelFiles([]);
     setPendingDanoMoralAtrasoFiles([]);
     setPendingTrctMediaHorasFiles([]);
+    setPendingExtratoFgtsFiles([]);
     setSavedMessage("");
   }
 
@@ -1727,6 +1784,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingTrctMediaHorasFiles, "verbas_rescisorias_media_horas_extras_nao_paga", "geral");
         setPendingTrctMediaHorasFiles([]);
       }
+      if (pendingExtratoFgtsFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingExtratoFgtsFiles, "ausencia_depositos_fgts", "provasExtratoFgts");
+        setPendingExtratoFgtsFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1783,7 +1845,8 @@ export function RTComposerPage() {
         ],
         integracao_aluguel_veiculo_particular_natureza_salarial: pendingIntegracaoAluguelFiles.map((file) => ({ file, grupo: "geral" })),
         dano_moral_atraso_salarial: pendingDanoMoralAtrasoFiles.map((file) => ({ file, grupo: "geral" })),
-        verbas_rescisorias_media_horas_extras_nao_paga: pendingTrctMediaHorasFiles.map((file) => ({ file, grupo: "geral" }))
+        verbas_rescisorias_media_horas_extras_nao_paga: pendingTrctMediaHorasFiles.map((file) => ({ file, grupo: "geral" })),
+        ausencia_depositos_fgts: pendingExtratoFgtsFiles.map((file) => ({ file, grupo: "provasExtratoFgts" }))
       });
       await exportToDocx(
           blocksForExport,
@@ -2284,6 +2347,46 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "ausencia_depositos_fgts" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>Anexar extrato do FGTS</span>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png"
+                                            multiple
+                                            onChange={(event) => handleAttachmentUpload(event, "ausencia_depositos_fgts", "provasExtratoFgts")}
+                                        />
+                                      </label>
+                                      <small>Os prints permanecem neste rascunho e serão enviados somente ao salvar a RT.</small>
+                                      {(apiPreviews.ausencia_depositos_fgts?.anexos.length || pendingExtratoFgtsPreviews.length) ? (
+                                          <div className="ordered-attachment-list">
+                                            {(apiPreviews.ausencia_depositos_fgts?.anexos || []).map((anexo, index, anexos) => (
+                                                <div className="ordered-attachment-item" key={anexo.id}>
+                                                  <img src={anexo.url} alt={anexo.nomeOriginal} />
+                                                  <span title={anexo.nomeOriginal}>{anexo.nomeOriginal}</span>
+                                                  <div className="ordered-attachment-actions">
+                                                    <button type="button" disabled={index === 0} onClick={() => movePersistedExtratoFgts(index, -1)} aria-label={`Mover ${anexo.nomeOriginal} para cima`}>↑</button>
+                                                    <button type="button" disabled={index === anexos.length - 1} onClick={() => movePersistedExtratoFgts(index, 1)} aria-label={`Mover ${anexo.nomeOriginal} para baixo`}>↓</button>
+                                                    <button type="button" onClick={() => handleAttachmentRemove(anexo.id, "ausencia_depositos_fgts")}>Remover</button>
+                                                  </div>
+                                                </div>
+                                            ))}
+                                            {pendingExtratoFgtsPreviews.map(({ file, key, url }, index, arquivos) => (
+                                                <div className="ordered-attachment-item" key={key}>
+                                                  <img src={url} alt={file.name} />
+                                                  <span title={file.name}>{file.name}</span>
+                                                  <div className="ordered-attachment-actions">
+                                                    <button type="button" disabled={index === 0} onClick={() => movePendingExtratoFgts(index, -1)} aria-label={`Mover ${file.name} para cima`}>↑</button>
+                                                    <button type="button" disabled={index === arquivos.length - 1} onClick={() => movePendingExtratoFgts(index, 1)} aria-label={`Mover ${file.name} para baixo`}>↓</button>
+                                                    <button type="button" onClick={() => handlePendingExtratoFgtsRemove(key)}>Remover</button>
+                                                  </div>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
                                       <div className="block-variable-fields">
@@ -2476,7 +2579,8 @@ export function RTComposerPage() {
                           "diferencas_salariais_piso_convencional",
                           "integracao_aluguel_veiculo_particular_natureza_salarial",
                           "dano_moral_atraso_salarial",
-                          "verbas_rescisorias_media_horas_extras_nao_paga"
+                          "verbas_rescisorias_media_horas_extras_nao_paga",
+                          "ausencia_depositos_fgts"
                         ].includes(block.id), session?.token || "", block.id, block.paragrafosRecuados)}
                       </section>
                   ))}
