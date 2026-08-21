@@ -70,6 +70,7 @@ type BlockId =
     | "ausencia_depositos_fgts"
     | "diarias_viagem"
     | "vale_alimentacao"
+    | "seguro_vida"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -178,7 +179,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "meio_ambiente_trabalho_nocivo_saude",
   "ausencia_depositos_fgts",
   "diarias_viagem",
-  "vale_alimentacao"
+  "vale_alimentacao",
+  "seguro_vida"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -245,6 +247,8 @@ interface ComposerState {
   clausulaCctValeAlimentacao: string;
   identificacaoCctValeAlimentacao: string;
   textoClausulaValeAlimentacao: string;
+  clausulaCctSeguroVida: string;
+  identificacaoCctSeguroVida: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -533,6 +537,8 @@ const initialState: ComposerState = {
   clausulaCctValeAlimentacao: "",
   identificacaoCctValeAlimentacao: "",
   textoClausulaValeAlimentacao: "",
+  clausulaCctSeguroVida: "",
+  identificacaoCctSeguroVida: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -617,6 +623,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "ausencia_depositos_fgts", title: "Ausência de depósitos de FGTS", section: "FGTS" },
   { id: "diarias_viagem", title: "Diárias de viagem", section: "Diárias de viagem" },
   { id: "vale_alimentacao", title: "Vale-alimentação", section: "Vale-alimentação" },
+  { id: "seguro_vida", title: "Seguro de vida", section: "Seguro de vida" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -709,7 +716,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   jornada_trabalho_dano_moral_jornada_extenuante: ["mediaHorasJornadaDiaria"],
   meio_ambiente_trabalho_nocivo_saude: ["descricaoAmbienteTrabalhoNocivo"],
   diarias_viagem: ["clausulaCctDiariasViagem", "identificacaoCctDiariasViagem", "textoClausulaDiariasViagem", "mediaViagensMensais", "criterioProvaDiariasViagem"],
-  vale_alimentacao: ["clausulaCctValeAlimentacao", "identificacaoCctValeAlimentacao", "textoClausulaValeAlimentacao"]
+  vale_alimentacao: ["clausulaCctValeAlimentacao", "identificacaoCctValeAlimentacao", "textoClausulaValeAlimentacao"],
+  seguro_vida: ["clausulaCctSeguroVida", "identificacaoCctSeguroVida"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -860,6 +868,8 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     clausulaCctValeAlimentacao: String(processo.dadosVariaveis?.vale_alimentacao?.clausulaCctValeAlimentacao ?? ""),
     identificacaoCctValeAlimentacao: String(processo.dadosVariaveis?.vale_alimentacao?.identificacaoCctValeAlimentacao ?? ""),
     textoClausulaValeAlimentacao: String(processo.dadosVariaveis?.vale_alimentacao?.textoClausulaValeAlimentacao ?? ""),
+    clausulaCctSeguroVida: String(processo.dadosVariaveis?.seguro_vida?.clausulaCctSeguroVida ?? ""),
+    identificacaoCctSeguroVida: String(processo.dadosVariaveis?.seguro_vida?.identificacaoCctSeguroVida ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2546,6 +2556,8 @@ export function RTComposerPage() {
                                         clausulaCctValeAlimentacao: "Cláusula da CCT",
                                         identificacaoCctValeAlimentacao: "Identificação da CCT",
                                         textoClausulaValeAlimentacao: "Conteúdo da cláusula",
+                                        clausulaCctSeguroVida: "Cláusula da CCT",
+                                        identificacaoCctSeguroVida: "Identificação da CCT",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
