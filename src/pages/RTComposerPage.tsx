@@ -65,6 +65,7 @@ type BlockId =
     | "jornada_trabalho_intervalo_intrajornada"
     | "jornada_trabalho_inconstitucionalidade_tempo_espera"
     | "jornada_trabalho_dano_moral_jornada_extenuante"
+    | "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -110,7 +111,8 @@ const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
       "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada",
       "jornada_trabalho_intervalo_intrajornada",
       "jornada_trabalho_inconstitucionalidade_tempo_espera",
-      "jornada_trabalho_dano_moral_jornada_extenuante"
+      "jornada_trabalho_dano_moral_jornada_extenuante",
+      "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
     ]
   }
 };
@@ -167,7 +169,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada",
   "jornada_trabalho_intervalo_intrajornada",
   "jornada_trabalho_inconstitucionalidade_tempo_espera",
-  "jornada_trabalho_dano_moral_jornada_extenuante"
+  "jornada_trabalho_dano_moral_jornada_extenuante",
+  "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -454,7 +457,7 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], im
       ) : null}
       {imagensFixas.filter((imagem) => imagem.afterParagraph === index + 1).map((imagem) => (
         <div
-            className={`rt-preview-attachments${blockId === "jornada_trabalho_dano_moral_jornada_extenuante" ? " rt-preview-fixed-images-wide" : ""}`}
+            className={`rt-preview-attachments${["jornada_trabalho_dano_moral_jornada_extenuante", "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"].includes(blockId) ? " rt-preview-fixed-images-wide" : ""}`}
             key={`${imagem.url}-${imagem.afterParagraph}`}
         >
           <FixedPreviewImage image={imagem} token={token} />
@@ -583,6 +586,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_intervalo_intrajornada", title: "j. Intervalo intrajornada (nulidade dos intervalos superiores a 2h e fracionados – Tempo à disposição)", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_inconstitucionalidade_tempo_espera", title: "k. Inconstitucionalidade do tempo de espera", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_dano_moral_jornada_extenuante", title: "l. Dano moral pelo cumprimento de jornada extenuante", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h", title: "m. Inconstitucionalidade da jornada habitual de 12h diárias", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
