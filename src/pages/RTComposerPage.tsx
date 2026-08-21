@@ -75,6 +75,7 @@ type BlockId =
     | "adicional_insalubridade"
     | "adicional_periculosidade"
     | "periculosidade_tanque_suplementar"
+    | "dano_moral_cobranca_abusiva_metas"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -188,7 +189,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "convenio_medico",
   "adicional_insalubridade",
   "adicional_periculosidade",
-  "periculosidade_tanque_suplementar"
+  "periculosidade_tanque_suplementar",
+  "dano_moral_cobranca_abusiva_metas"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -650,6 +652,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "adicional_insalubridade", title: "Adicional de insalubridade", section: "Adicional de insalubridade" },
   { id: "adicional_periculosidade", title: "Adicional de periculosidade", section: "Adicional de periculosidade" },
   { id: "periculosidade_tanque_suplementar", title: "Adicional de periculosidade. Tanque suplementar. Lei n.º 14.766/2023", section: "Adicional de periculosidade" },
+  { id: "dano_moral_cobranca_abusiva_metas", title: "Dano moral pela cobrança abusiva de metas", section: "Danos morais" },
 ];
 
 const defaultBlocks: BlockId[] = [
