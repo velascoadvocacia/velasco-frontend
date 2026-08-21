@@ -74,6 +74,7 @@ type BlockId =
     | "convenio_medico"
     | "adicional_insalubridade"
     | "adicional_periculosidade"
+    | "periculosidade_tanque_suplementar"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -186,7 +187,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "seguro_vida",
   "convenio_medico",
   "adicional_insalubridade",
-  "adicional_periculosidade"
+  "adicional_periculosidade",
+  "periculosidade_tanque_suplementar"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -260,6 +262,7 @@ interface ComposerState {
   textoClausulaConvenioMedico: string;
   descricaoExposicaoInsalubridade: string;
   descricaoExposicaoPericulosidade: string;
+  capacidadeTotalTanquesDiesel: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -557,6 +560,7 @@ const initialState: ComposerState = {
   textoClausulaConvenioMedico: "",
   descricaoExposicaoInsalubridade: "",
   descricaoExposicaoPericulosidade: "",
+  capacidadeTotalTanquesDiesel: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -645,6 +649,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "convenio_medico", title: "Convênio médico", section: "Convênio médico" },
   { id: "adicional_insalubridade", title: "Adicional de insalubridade", section: "Adicional de insalubridade" },
   { id: "adicional_periculosidade", title: "Adicional de periculosidade", section: "Adicional de periculosidade" },
+  { id: "periculosidade_tanque_suplementar", title: "Adicional de periculosidade. Tanque suplementar. Lei n.º 14.766/2023", section: "Adicional de periculosidade" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -741,7 +746,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   seguro_vida: ["clausulaCctSeguroVida", "identificacaoCctSeguroVida"],
   convenio_medico: ["clausulaCctConvenioMedico", "identificacaoCctConvenioMedico", "textoClausulaConvenioMedico"],
   adicional_insalubridade: ["descricaoExposicaoInsalubridade"],
-  adicional_periculosidade: ["descricaoExposicaoPericulosidade"]
+  adicional_periculosidade: ["descricaoExposicaoPericulosidade"],
+  periculosidade_tanque_suplementar: ["capacidadeTotalTanquesDiesel", "dataAdmissao"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -899,8 +905,9 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     textoClausulaConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.textoClausulaConvenioMedico ?? ""),
     descricaoExposicaoInsalubridade: String(processo.dadosVariaveis?.adicional_insalubridade?.descricaoExposicaoInsalubridade ?? ""),
     descricaoExposicaoPericulosidade: String(processo.dadosVariaveis?.adicional_periculosidade?.descricaoExposicaoPericulosidade ?? ""),
+    capacidadeTotalTanquesDiesel: String(processo.dadosVariaveis?.periculosidade_tanque_suplementar?.capacidadeTotalTanquesDiesel ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
-    dataAdmissao: contrato?.dataAdmissao ?? "",
+    dataAdmissao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.periculosidade_tanque_suplementar?.dataAdmissao ?? ""),
     dataDemissao: contrato?.dataDemissao ?? "",
     cidadePrestacao: contrato?.localPrestacaoServico ?? "",
     descricaoAcidente: processo.rtDescricaoAcidente ?? "",
@@ -1838,6 +1845,17 @@ export function RTComposerPage() {
       setError("Selecione o critério de prova no bloco Diárias de viagem.");
       return false;
     }
+    if (selectedBlocks.includes("periculosidade_tanque_suplementar")) {
+      const capacidade = Number(values.capacidadeTotalTanquesDiesel);
+      if (!values.capacidadeTotalTanquesDiesel.trim() || !Number.isFinite(capacidade) || capacidade <= 0) {
+        setError("Informe uma capacidade total válida para os tanques de óleo diesel.");
+        return false;
+      }
+      if (!values.dataAdmissao) {
+        setError("Informe a data de admissão para o bloco de tanque suplementar.");
+        return false;
+      }
+    }
     return true;
   }
 
@@ -2658,6 +2676,7 @@ export function RTComposerPage() {
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) =>
                                       !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho", "criterioProvaDiariasViagem"].includes(field)
                                       && !(block.id === "diarias_viagem" && field === "mediaViagensMensais" && values.criterioProvaDiariasViagem !== "CONTROLES_JORNADA")
+                                      && !(block.id === "periculosidade_tanque_suplementar" && field === "dataAdmissao" && values.dataAdmissao)
                                     ).map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
@@ -2693,6 +2712,7 @@ export function RTComposerPage() {
                                         textoClausulaConvenioMedico: "Conteúdo da cláusula",
                                         descricaoExposicaoInsalubridade: "Descrição da exposição à insalubridade",
                                         descricaoExposicaoPericulosidade: "Descrição da exposição à periculosidade",
+                                        capacidadeTotalTanquesDiesel: "Capacidade total dos tanques de óleo diesel (litros)",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2749,6 +2769,7 @@ export function RTComposerPage() {
                                       const isMoney = block.id === "diferencas_salariais_acumulo_funcoes" && ["salarioFuncaoOriginal", "salarioFuncaoAcumulada", "remuneracao"].includes(field);
                                       const isLatereMoney = block.id === "salario_a_latere" && field === "valorMedioMensal";
                                       const isVehicleRentalMoney = block.id === "integracao_aluguel_veiculo_particular_natureza_salarial" && field === "valorAluguelVeiculo";
+                                      const isDieselCapacity = block.id === "periculosidade_tanque_suplementar" && field === "capacidadeTotalTanquesDiesel";
                                       return (
                                           <label className={["informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo"].includes(field) ? "field-wide" : undefined} key={field}>
                                             {fieldLabel}
@@ -2761,9 +2782,10 @@ export function RTComposerPage() {
                                                 />
                                             ) : (
                                                 <input
-                                                    type={isDate ? "date" : field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "number" : "text"}
-                                                    step={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0.01" : undefined}
-                                                    min={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0" : undefined}
+                                                    type={isDate ? "date" : field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney || isDieselCapacity ? "number" : "text"}
+                                                    step={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0.01" : isDieselCapacity ? "1" : undefined}
+                                                    min={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney || isDieselCapacity ? "0" : undefined}
+                                                    aria-invalid={isDieselCapacity && (!values.capacidadeTotalTanquesDiesel.trim() || Number(values.capacidadeTotalTanquesDiesel) <= 0)}
                                                     value={String(values[field] ?? "")}
                                                     placeholder={field === "horasDiariasIntervaloIntrajornada" ? "Ex.: 3 horas e 30 minutos" : field === "mediaHorasJornadaDiaria" ? "Ex.: 12 horas" : undefined}
                                                     onChange={(event) => handleChange(field, event.target.value)}
