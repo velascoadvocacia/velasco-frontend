@@ -78,6 +78,9 @@ type BlockId =
     | "dano_moral_cobranca_abusiva_metas"
     | "dano_moral_assedio_moral"
     | "dano_moral_limitacao_banheiro"
+    | "doenca_profissional_acidente_trabalho"
+    | "doenca_acidente_responsabilidade_objetiva"
+    | "doenca_acidente_danos_morais"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -125,6 +128,12 @@ const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
       "jornada_trabalho_inconstitucionalidade_tempo_espera",
       "jornada_trabalho_dano_moral_jornada_extenuante",
       "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
+    ]
+  },
+  doenca_profissional_acidente_trabalho: {
+    children: [
+      "doenca_acidente_responsabilidade_objetiva",
+      "doenca_acidente_danos_morais"
     ]
   }
 };
@@ -194,7 +203,10 @@ const BLOCKS_FROM_API: BlockId[] = [
   "periculosidade_tanque_suplementar",
   "dano_moral_cobranca_abusiva_metas",
   "dano_moral_assedio_moral",
-  "dano_moral_limitacao_banheiro"
+  "dano_moral_limitacao_banheiro",
+  "doenca_profissional_acidente_trabalho",
+  "doenca_acidente_responsabilidade_objetiva",
+  "doenca_acidente_danos_morais"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -270,6 +282,10 @@ interface ComposerState {
   descricaoExposicaoPericulosidade: string;
   capacidadeTotalTanquesDiesel: string;
   descricaoLimitacaoUsoBanheiro: string;
+  tipoEventoSaudeTrabalho: "" | "DOENCA_PROFISSIONAL" | "ACIDENTE_TRABALHO";
+  descricaoDoencaProfissional: string;
+  descricaoAcidenteTrabalho: string;
+  fundamentacaoResponsabilidadeObjetiva: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -569,6 +585,10 @@ const initialState: ComposerState = {
   descricaoExposicaoPericulosidade: "",
   capacidadeTotalTanquesDiesel: "",
   descricaoLimitacaoUsoBanheiro: "",
+  tipoEventoSaudeTrabalho: "",
+  descricaoDoencaProfissional: "",
+  descricaoAcidenteTrabalho: "",
+  fundamentacaoResponsabilidadeObjetiva: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -661,6 +681,9 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "dano_moral_cobranca_abusiva_metas", title: "Dano moral pela cobrança abusiva de metas", section: "Danos morais" },
   { id: "dano_moral_assedio_moral", title: "Dano moral por assédio moral", section: "Danos morais" },
   { id: "dano_moral_limitacao_banheiro", title: "Dano moral por limitação à utilização do banheiro", section: "Danos morais" },
+  { id: "doenca_profissional_acidente_trabalho", title: "Doença profissional ou acidente de trabalho", section: "Doença profissional ou acidente de trabalho" },
+  { id: "doenca_acidente_responsabilidade_objetiva", title: "Responsabilidade objetiva", section: "Doença profissional ou acidente de trabalho" },
+  { id: "doenca_acidente_danos_morais", title: "Indenização por danos morais", section: "Doença profissional ou acidente de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -759,7 +782,9 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   adicional_insalubridade: ["descricaoExposicaoInsalubridade"],
   adicional_periculosidade: ["descricaoExposicaoPericulosidade"],
   periculosidade_tanque_suplementar: ["capacidadeTotalTanquesDiesel", "dataAdmissao"],
-  dano_moral_limitacao_banheiro: ["descricaoLimitacaoUsoBanheiro"]
+  dano_moral_limitacao_banheiro: ["descricaoLimitacaoUsoBanheiro"],
+  doenca_profissional_acidente_trabalho: ["tipoEventoSaudeTrabalho", "descricaoDoencaProfissional", "descricaoAcidenteTrabalho"],
+  doenca_acidente_responsabilidade_objetiva: ["fundamentacaoResponsabilidadeObjetiva"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -790,7 +815,9 @@ function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) 
 
 function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[], sitesEncerramentoAtividades: string[]) {
   const keys = new Set(selectedBlocks.flatMap((blockId) => (variableFieldsByBlock[blockId] ?? [])
-    .filter((key) => !(blockId === "diarias_viagem" && key === "mediaViagensMensais" && values.criterioProvaDiariasViagem !== "CONTROLES_JORNADA"))));
+    .filter((key) => !(blockId === "diarias_viagem" && key === "mediaViagensMensais" && values.criterioProvaDiariasViagem !== "CONTROLES_JORNADA"))
+    .filter((key) => !(blockId === "doenca_profissional_acidente_trabalho" && key === "descricaoDoencaProfissional" && values.tipoEventoSaudeTrabalho !== "DOENCA_PROFISSIONAL"))
+    .filter((key) => !(blockId === "doenca_profissional_acidente_trabalho" && key === "descricaoAcidenteTrabalho" && values.tipoEventoSaudeTrabalho !== "ACIDENTE_TRABALHO"))));
   return {
     ...Object.fromEntries(Array.from(keys).map((key) => [key, optional(String(values[key] ?? ""))])),
     ...(selectedBlocks.includes("rescisao_indireta_tutela_antecipada_verbas_incontroversas")
@@ -919,6 +946,12 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     descricaoExposicaoPericulosidade: String(processo.dadosVariaveis?.adicional_periculosidade?.descricaoExposicaoPericulosidade ?? ""),
     capacidadeTotalTanquesDiesel: String(processo.dadosVariaveis?.periculosidade_tanque_suplementar?.capacidadeTotalTanquesDiesel ?? ""),
     descricaoLimitacaoUsoBanheiro: String(processo.dadosVariaveis?.dano_moral_limitacao_banheiro?.descricaoLimitacaoUsoBanheiro ?? ""),
+    tipoEventoSaudeTrabalho: (["DOENCA_PROFISSIONAL", "ACIDENTE_TRABALHO"] as const).includes(processo.dadosVariaveis?.doenca_profissional_acidente_trabalho?.tipoEventoSaudeTrabalho as "DOENCA_PROFISSIONAL" | "ACIDENTE_TRABALHO")
+      ? processo.dadosVariaveis?.doenca_profissional_acidente_trabalho?.tipoEventoSaudeTrabalho as ComposerState["tipoEventoSaudeTrabalho"]
+      : "",
+    descricaoDoencaProfissional: String(processo.dadosVariaveis?.doenca_profissional_acidente_trabalho?.descricaoDoencaProfissional ?? ""),
+    descricaoAcidenteTrabalho: String(processo.dadosVariaveis?.doenca_profissional_acidente_trabalho?.descricaoAcidenteTrabalho ?? ""),
+    fundamentacaoResponsabilidadeObjetiva: String(processo.dadosVariaveis?.doenca_acidente_responsabilidade_objetiva?.fundamentacaoResponsabilidadeObjetiva ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.periculosidade_tanque_suplementar?.dataAdmissao ?? ""),
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -1075,7 +1108,7 @@ function buildPreviewBlocks(
     const apiContent = BLOCKS_FROM_API.includes(id) ? apiPreviewTexts[id] || "" : contentMap[id] || "";
     return {
       id,
-      title: id === "contrato_aspectos_gerais"
+      title: ["contrato_aspectos_gerais", "doenca_acidente_responsabilidade_objetiva", "doenca_acidente_danos_morais"].includes(id)
         ? apiPreviewTitles[id] || blockTitle(definition, values)
         : blockTitle(definition, values),
       content: id === "periodo_sem_registro_ctps"
@@ -1549,6 +1582,7 @@ export function RTComposerPage() {
   function toggleBlock(blockId: BlockId) {
     const parentId = parentByChild[blockId];
     if (parentId && !selectedBlocks.includes(parentId)) return;
+    if (parentId === "doenca_profissional_acidente_trabalho" && !values.tipoEventoSaudeTrabalho) return;
 
     const isSelected = selectedBlocks.includes(blockId);
     const childIds = blockRelationships[blockId]?.children || [];
@@ -1857,6 +1891,20 @@ export function RTComposerPage() {
     if (selectedBlocks.includes("diarias_viagem") && !values.criterioProvaDiariasViagem) {
       setError("Selecione o critério de prova no bloco Diárias de viagem.");
       return false;
+    }
+    if (selectedBlocks.includes("doenca_profissional_acidente_trabalho")) {
+      if (!values.tipoEventoSaudeTrabalho) {
+        setError("Selecione doença profissional ou acidente de trabalho.");
+        return false;
+      }
+      if (values.tipoEventoSaudeTrabalho === "DOENCA_PROFISSIONAL" && !values.descricaoDoencaProfissional.trim()) {
+        setError("Preencha a descrição da doença profissional.");
+        return false;
+      }
+      if (values.tipoEventoSaudeTrabalho === "ACIDENTE_TRABALHO" && !values.descricaoAcidenteTrabalho.trim()) {
+        setError("Preencha a descrição do acidente de trabalho.");
+        return false;
+      }
     }
     if (selectedBlocks.includes("periculosidade_tanque_suplementar")) {
       const capacidade = Number(values.capacidadeTotalTanquesDiesel);
@@ -2240,6 +2288,7 @@ export function RTComposerPage() {
                                   <input
                                       type="checkbox"
                                       checked={selectedBlocks.includes(block.id)}
+                                      disabled={parentId === "doenca_profissional_acidente_trabalho" && !values.tipoEventoSaudeTrabalho}
                                       onChange={() => toggleBlock(block.id)}
                                   />
                                   <div>
@@ -2680,6 +2729,32 @@ export function RTComposerPage() {
                                         {!values.criterioProvaDiariasViagem ? <small>Selecione uma opção para salvar ou exportar este bloco.</small> : null}
                                       </fieldset>
                                   ) : null}
+                                  {block.id === "doenca_profissional_acidente_trabalho" && selectedBlocks.includes(block.id) ? (
+                                      <fieldset className="exclusive-choice-group" aria-invalid={!values.tipoEventoSaudeTrabalho}>
+                                        <legend>Tipo de evento de saúde relacionado ao trabalho</legend>
+                                        <label className="checkbox-card">
+                                          <input
+                                              type="radio"
+                                              name="tipoEventoSaudeTrabalho"
+                                              value="DOENCA_PROFISSIONAL"
+                                              checked={values.tipoEventoSaudeTrabalho === "DOENCA_PROFISSIONAL"}
+                                              onChange={() => setValues((current) => ({ ...current, tipoEventoSaudeTrabalho: "DOENCA_PROFISSIONAL" }))}
+                                          />
+                                          <span>Doença profissional</span>
+                                        </label>
+                                        <label className="checkbox-card">
+                                          <input
+                                              type="radio"
+                                              name="tipoEventoSaudeTrabalho"
+                                              value="ACIDENTE_TRABALHO"
+                                              checked={values.tipoEventoSaudeTrabalho === "ACIDENTE_TRABALHO"}
+                                              onChange={() => setValues((current) => ({ ...current, tipoEventoSaudeTrabalho: "ACIDENTE_TRABALHO" }))}
+                                          />
+                                          <span>Acidente de trabalho</span>
+                                        </label>
+                                        {!values.tipoEventoSaudeTrabalho ? <small>Selecione uma opção para liberar os blocos filhos e salvar ou exportar.</small> : null}
+                                      </fieldset>
+                                  ) : null}
                                   {block.id === "adicional_transferencia" && values.dataInicioTransferencia && values.dataFimTransferencia ? (
                                       <p>
                                         DE {formatDate(values.dataInicioTransferencia)} a {formatDate(values.dataFimTransferencia)}
@@ -2687,9 +2762,11 @@ export function RTComposerPage() {
                                   ) : null}
                                   <div className="form-grid block-variable-fields">
                                     {(variableFieldsByBlock[block.id] ?? []).filter((field) =>
-                                      !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho", "criterioProvaDiariasViagem"].includes(field)
+                                      !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho", "criterioProvaDiariasViagem", "tipoEventoSaudeTrabalho"].includes(field)
                                       && !(block.id === "diarias_viagem" && field === "mediaViagensMensais" && values.criterioProvaDiariasViagem !== "CONTROLES_JORNADA")
                                       && !(block.id === "periculosidade_tanque_suplementar" && field === "dataAdmissao" && values.dataAdmissao)
+                                      && !(block.id === "doenca_profissional_acidente_trabalho" && field === "descricaoDoencaProfissional" && values.tipoEventoSaudeTrabalho !== "DOENCA_PROFISSIONAL")
+                                      && !(block.id === "doenca_profissional_acidente_trabalho" && field === "descricaoAcidenteTrabalho" && values.tipoEventoSaudeTrabalho !== "ACIDENTE_TRABALHO")
                                     ).map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
@@ -2727,6 +2804,9 @@ export function RTComposerPage() {
                                         descricaoExposicaoPericulosidade: "Descrição da exposição à periculosidade",
                                         capacidadeTotalTanquesDiesel: "Capacidade total dos tanques de óleo diesel (litros)",
                                         descricaoLimitacaoUsoBanheiro: "Descrição da limitação ao uso do banheiro",
+                                        descricaoDoencaProfissional: "Descrição da doença profissional",
+                                        descricaoAcidenteTrabalho: "Descrição do acidente de trabalho",
+                                        fundamentacaoResponsabilidadeObjetiva: "Fundamentação da responsabilidade objetiva",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2766,7 +2846,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico", "descricaoExposicaoInsalubridade", "descricaoExposicaoPericulosidade", "descricaoLimitacaoUsoBanheiro"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico", "descricaoExposicaoInsalubridade", "descricaoExposicaoPericulosidade", "descricaoLimitacaoUsoBanheiro", "descricaoDoencaProfissional", "descricaoAcidenteTrabalho", "fundamentacaoResponsabilidadeObjetiva"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2791,7 +2871,7 @@ export function RTComposerPage() {
                                                 <textarea
                                                     rows={4}
                                                     value={String(values[field] ?? "")}
-                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : field === "descricaoExposicaoInsalubridade" ? "Descreva as atividades, agentes insalubres, frequência da exposição, ambiente e ausência ou insuficiência de proteção" : field === "descricaoExposicaoPericulosidade" ? "Descreva as atividades, agentes perigosos, frequência da exposição, ambiente e condições de risco" : field === "descricaoLimitacaoUsoBanheiro" ? "Descreva como ocorria o controle, o limite de tempo ou de frequência e as consequências para a parte autora" : undefined}
+                                                    placeholder={field === "descricaoSupressaoIntervaloInterjornada" ? "Descreva como ocorria a supressão do intervalo interjornada" : field === "descricaoAmbienteTrabalhoNocivo" ? "Descreva como e em quais condições a parte autora trabalhava" : field === "descricaoExposicaoInsalubridade" ? "Descreva as atividades, agentes insalubres, frequência da exposição, ambiente e ausência ou insuficiência de proteção" : field === "descricaoExposicaoPericulosidade" ? "Descreva as atividades, agentes perigosos, frequência da exposição, ambiente e condições de risco" : field === "descricaoLimitacaoUsoBanheiro" ? "Descreva como ocorria o controle, o limite de tempo ou de frequência e as consequências para a parte autora" : field === "descricaoDoencaProfissional" ? "Descreva a doença profissional e sua relação com o trabalho" : field === "descricaoAcidenteTrabalho" ? "Descreva como ocorreu o acidente de trabalho" : undefined}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
                                             ) : (
