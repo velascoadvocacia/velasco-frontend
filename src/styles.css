@@ -721,6 +721,28 @@ textarea {
   padding: 0.35rem 0.5rem;
 }
 
+.exclusive-choice-group {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #dededb;
+  border-radius: 0.75rem;
+}
+
+.exclusive-choice-group legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+
+.exclusive-choice-group[aria-invalid="true"] {
+  border-color: #b42318;
+}
+
+.exclusive-choice-group small {
+  color: #b42318;
+}
+
 /* ─── Entity cards ───────────────────────────────────── */
 
 .entity-picker,

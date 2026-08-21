@@ -68,6 +68,7 @@ type BlockId =
     | "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h"
     | "meio_ambiente_trabalho_nocivo_saude"
     | "ausencia_depositos_fgts"
+    | "diarias_viagem"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -174,7 +175,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_dano_moral_jornada_extenuante",
   "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h",
   "meio_ambiente_trabalho_nocivo_saude",
-  "ausencia_depositos_fgts"
+  "ausencia_depositos_fgts",
+  "diarias_viagem"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -233,6 +235,11 @@ interface ComposerState {
   horasDiariasIntervaloIntrajornada: string;
   mediaHorasJornadaDiaria: string;
   descricaoAmbienteTrabalhoNocivo: string;
+  clausulaCctDiariasViagem: string;
+  identificacaoCctDiariasViagem: string;
+  textoClausulaDiariasViagem: string;
+  mediaViagensMensais: string;
+  criterioProvaDiariasViagem: "" | "CONTROLES_JORNADA" | "PRESTACOES_CONTAS";
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -513,6 +520,11 @@ const initialState: ComposerState = {
   horasDiariasIntervaloIntrajornada: "",
   mediaHorasJornadaDiaria: "",
   descricaoAmbienteTrabalhoNocivo: "",
+  clausulaCctDiariasViagem: "",
+  identificacaoCctDiariasViagem: "",
+  textoClausulaDiariasViagem: "",
+  mediaViagensMensais: "",
+  criterioProvaDiariasViagem: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -595,6 +607,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_inconstitucionalidade_jornada_habitual_12h", title: "m. Inconstitucionalidade da jornada habitual de 12h diárias", section: "Jornada de trabalho" },
   { id: "meio_ambiente_trabalho_nocivo_saude", title: "Meio ambiente de trabalho nocivo à saúde", section: "Meio ambiente de trabalho" },
   { id: "ausencia_depositos_fgts", title: "Ausência de depósitos de FGTS", section: "FGTS" },
+  { id: "diarias_viagem", title: "Diárias de viagem", section: "Diárias de viagem" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -685,7 +698,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   jornada_trabalho_intervalo_interjornada: ["descricaoSupressaoIntervaloInterjornada"],
   jornada_trabalho_intervalo_intrajornada: ["horasDiariasIntervaloIntrajornada"],
   jornada_trabalho_dano_moral_jornada_extenuante: ["mediaHorasJornadaDiaria"],
-  meio_ambiente_trabalho_nocivo_saude: ["descricaoAmbienteTrabalhoNocivo"]
+  meio_ambiente_trabalho_nocivo_saude: ["descricaoAmbienteTrabalhoNocivo"],
+  diarias_viagem: ["clausulaCctDiariasViagem", "identificacaoCctDiariasViagem", "textoClausulaDiariasViagem", "mediaViagensMensais", "criterioProvaDiariasViagem"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -715,7 +729,8 @@ function buildVariablePayload(values: ComposerState, selectedBlocks: BlockId[]) 
 }
 
 function buildApiVariablePayload(values: ComposerState, selectedBlocks: BlockId[], sitesEncerramentoAtividades: string[]) {
-  const keys = new Set(selectedBlocks.flatMap((blockId) => variableFieldsByBlock[blockId] ?? []));
+  const keys = new Set(selectedBlocks.flatMap((blockId) => (variableFieldsByBlock[blockId] ?? [])
+    .filter((key) => !(blockId === "diarias_viagem" && key === "mediaViagensMensais" && values.criterioProvaDiariasViagem !== "CONTROLES_JORNADA"))));
   return {
     ...Object.fromEntries(Array.from(keys).map((key) => [key, optional(String(values[key] ?? ""))])),
     ...(selectedBlocks.includes("rescisao_indireta_tutela_antecipada_verbas_incontroversas")
@@ -825,6 +840,13 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     horasDiariasIntervaloIntrajornada: String(processo.dadosVariaveis?.jornada_trabalho_intervalo_intrajornada?.horasDiariasIntervaloIntrajornada ?? ""),
     mediaHorasJornadaDiaria: String(processo.dadosVariaveis?.jornada_trabalho_dano_moral_jornada_extenuante?.mediaHorasJornadaDiaria ?? ""),
     descricaoAmbienteTrabalhoNocivo: String(processo.dadosVariaveis?.meio_ambiente_trabalho_nocivo_saude?.descricaoAmbienteTrabalhoNocivo ?? ""),
+    clausulaCctDiariasViagem: String(processo.dadosVariaveis?.diarias_viagem?.clausulaCctDiariasViagem ?? ""),
+    identificacaoCctDiariasViagem: String(processo.dadosVariaveis?.diarias_viagem?.identificacaoCctDiariasViagem ?? ""),
+    textoClausulaDiariasViagem: String(processo.dadosVariaveis?.diarias_viagem?.textoClausulaDiariasViagem ?? ""),
+    mediaViagensMensais: String(processo.dadosVariaveis?.diarias_viagem?.mediaViagensMensais ?? ""),
+    criterioProvaDiariasViagem: (["CONTROLES_JORNADA", "PRESTACOES_CONTAS"] as const).includes(processo.dadosVariaveis?.diarias_viagem?.criterioProvaDiariasViagem as "CONTROLES_JORNADA" | "PRESTACOES_CONTAS")
+      ? processo.dadosVariaveis?.diarias_viagem?.criterioProvaDiariasViagem as ComposerState["criterioProvaDiariasViagem"]
+      : "",
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -1704,16 +1726,20 @@ export function RTComposerPage() {
     };
   }
 
-  function validateDispensaDiscriminatoria() {
+  function validateRequiredBlockChoices() {
     if (selectedBlocks.includes("dispensa_discriminatoria_reintegracao_ou_pagamento") && !values.opcaoDesfecho) {
       setError("Selecione o desfecho pretendido no bloco de dispensa discriminatória.");
+      return false;
+    }
+    if (selectedBlocks.includes("diarias_viagem") && !values.criterioProvaDiariasViagem) {
+      setError("Selecione o critério de prova no bloco Diárias de viagem.");
       return false;
     }
     return true;
   }
 
   async function handleSave() {
-    if (!validateDispensaDiscriminatoria()) return;
+    if (!validateRequiredBlockChoices()) return;
     setIsSaving(true);
     setError("");
     setSavedMessage("");
@@ -1805,7 +1831,7 @@ export function RTComposerPage() {
   }
 
   async function handleExportDocx() {
-    if (!validateDispensaDiscriminatoria()) return;
+    if (!validateRequiredBlockChoices()) return;
     setExportingDocx(true);
     setError("");
 
@@ -2444,13 +2470,42 @@ export function RTComposerPage() {
                                         </label>
                                       </div>
                                   ) : null}
+                                  {block.id === "diarias_viagem" && selectedBlocks.includes(block.id) ? (
+                                      <fieldset className="exclusive-choice-group" aria-invalid={!values.criterioProvaDiariasViagem}>
+                                        <legend>Critério de prova das diárias de viagem</legend>
+                                        <label className="checkbox-card">
+                                          <input
+                                              type="radio"
+                                              name="criterioProvaDiariasViagem"
+                                              value="CONTROLES_JORNADA"
+                                              checked={values.criterioProvaDiariasViagem === "CONTROLES_JORNADA"}
+                                              onChange={() => setValues((current) => ({ ...current, criterioProvaDiariasViagem: "CONTROLES_JORNADA" }))}
+                                          />
+                                          <span>Solicitar controles de jornada e informar média de viagens</span>
+                                        </label>
+                                        <label className="checkbox-card">
+                                          <input
+                                              type="radio"
+                                              name="criterioProvaDiariasViagem"
+                                              value="PRESTACOES_CONTAS"
+                                              checked={values.criterioProvaDiariasViagem === "PRESTACOES_CONTAS"}
+                                              onChange={() => setValues((current) => ({ ...current, criterioProvaDiariasViagem: "PRESTACOES_CONTAS" }))}
+                                          />
+                                          <span>Solicitar prestações de contas e adotar 26 dias por mês</span>
+                                        </label>
+                                        {!values.criterioProvaDiariasViagem ? <small>Selecione uma opção para salvar ou exportar este bloco.</small> : null}
+                                      </fieldset>
+                                  ) : null}
                                   {block.id === "adicional_transferencia" && values.dataInicioTransferencia && values.dataFimTransferencia ? (
                                       <p>
                                         DE {formatDate(values.dataInicioTransferencia)} a {formatDate(values.dataFimTransferencia)}
                                       </p>
                                   ) : null}
                                   <div className="form-grid block-variable-fields">
-                                    {(variableFieldsByBlock[block.id] ?? []).filter((field) => !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho"].includes(field)).map((field) => {
+                                    {(variableFieldsByBlock[block.id] ?? []).filter((field) =>
+                                      !["motivoExtincao", "incluirJurisprudenciaDoenca", "opcaoDesfecho", "criterioProvaDiariasViagem"].includes(field)
+                                      && !(block.id === "diarias_viagem" && field === "mediaViagensMensais" && values.criterioProvaDiariasViagem !== "CONTROLES_JORNADA")
+                                    ).map((field) => {
                                       const labels: Partial<Record<keyof ComposerState, string>> = {
                                         dataAdmissao: "Data de admissão",
                                         dataInicioAcumuloFuncao: "Data de início do acúmulo de função",
@@ -2471,6 +2526,10 @@ export function RTComposerPage() {
                                         horasDiariasIntervaloIntrajornada: "Total de horas diárias de intervalo intrajornada",
                                         mediaHorasJornadaDiaria: "Média de horas trabalhadas por dia",
                                         descricaoAmbienteTrabalhoNocivo: "Descrição do ambiente de trabalho nocivo",
+                                        clausulaCctDiariasViagem: "Cláusula da CCT",
+                                        identificacaoCctDiariasViagem: "Identificação da CCT",
+                                        textoClausulaDiariasViagem: "Conteúdo da cláusula",
+                                        mediaViagensMensais: "Média de viagens realizadas por mês",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2510,7 +2569,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
