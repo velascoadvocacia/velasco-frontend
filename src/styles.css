@@ -667,7 +667,8 @@ textarea {
   margin: 0.85rem 0 1rem;
 }
 
-.rt-preview-attachments img {
+.rt-preview-attachments img,
+.rt-preview-attachments object {
   width: 7rem;
   height: 7rem;
 }
@@ -699,7 +700,8 @@ textarea {
   border-radius: 0.7rem;
 }
 
-.ordered-attachment-item img {
+.ordered-attachment-item img,
+.ordered-attachment-item object {
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 0.45rem;

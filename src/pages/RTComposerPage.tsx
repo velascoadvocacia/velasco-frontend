@@ -71,6 +71,7 @@ type BlockId =
     | "diarias_viagem"
     | "vale_alimentacao"
     | "seguro_vida"
+    | "convenio_medico"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -180,7 +181,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "ausencia_depositos_fgts",
   "diarias_viagem",
   "vale_alimentacao",
-  "seguro_vida"
+  "seguro_vida",
+  "convenio_medico"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -249,6 +251,9 @@ interface ComposerState {
   textoClausulaValeAlimentacao: string;
   clausulaCctSeguroVida: string;
   identificacaoCctSeguroVida: string;
+  clausulaCctConvenioMedico: string;
+  identificacaoCctConvenioMedico: string;
+  textoClausulaConvenioMedico: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -472,7 +477,9 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], im
       {renderAttachments && anexos.some((anexo) => (anexo.afterParagraph || 1) === index + 1) ? (
         <div className="rt-preview-attachments">
           {anexos.filter((anexo) => (anexo.afterParagraph || 1) === index + 1).map((anexo) => (
-            <img key={anexo.id} src={anexo.url} alt={anexo.nomeOriginal} />
+            anexo.contentType === "application/pdf"
+              ? <object key={anexo.id} data={anexo.url} type="application/pdf" aria-label={anexo.nomeOriginal}><a href={anexo.url}>{anexo.nomeOriginal}</a></object>
+              : <img key={anexo.id} src={anexo.url} alt={anexo.nomeOriginal} />
           ))}
         </div>
       ) : null}
@@ -539,6 +546,9 @@ const initialState: ComposerState = {
   textoClausulaValeAlimentacao: "",
   clausulaCctSeguroVida: "",
   identificacaoCctSeguroVida: "",
+  clausulaCctConvenioMedico: "",
+  identificacaoCctConvenioMedico: "",
+  textoClausulaConvenioMedico: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -624,6 +634,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "diarias_viagem", title: "Diárias de viagem", section: "Diárias de viagem" },
   { id: "vale_alimentacao", title: "Vale-alimentação", section: "Vale-alimentação" },
   { id: "seguro_vida", title: "Seguro de vida", section: "Seguro de vida" },
+  { id: "convenio_medico", title: "Convênio médico", section: "Convênio médico" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -717,7 +728,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   meio_ambiente_trabalho_nocivo_saude: ["descricaoAmbienteTrabalhoNocivo"],
   diarias_viagem: ["clausulaCctDiariasViagem", "identificacaoCctDiariasViagem", "textoClausulaDiariasViagem", "mediaViagensMensais", "criterioProvaDiariasViagem"],
   vale_alimentacao: ["clausulaCctValeAlimentacao", "identificacaoCctValeAlimentacao", "textoClausulaValeAlimentacao"],
-  seguro_vida: ["clausulaCctSeguroVida", "identificacaoCctSeguroVida"]
+  seguro_vida: ["clausulaCctSeguroVida", "identificacaoCctSeguroVida"],
+  convenio_medico: ["clausulaCctConvenioMedico", "identificacaoCctConvenioMedico", "textoClausulaConvenioMedico"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -870,6 +882,9 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     textoClausulaValeAlimentacao: String(processo.dadosVariaveis?.vale_alimentacao?.textoClausulaValeAlimentacao ?? ""),
     clausulaCctSeguroVida: String(processo.dadosVariaveis?.seguro_vida?.clausulaCctSeguroVida ?? ""),
     identificacaoCctSeguroVida: String(processo.dadosVariaveis?.seguro_vida?.identificacaoCctSeguroVida ?? ""),
+    clausulaCctConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.clausulaCctConvenioMedico ?? ""),
+    identificacaoCctConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.identificacaoCctConvenioMedico ?? ""),
+    textoClausulaConvenioMedico: String(processo.dadosVariaveis?.convenio_medico?.textoClausulaConvenioMedico ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -886,7 +901,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
   };
 }
 
-type ExportImageFile = { file: File; grupo: "geral" | "cbo" | "provas" | "provasExtratoFgts" };
+type ExportImageFile = { file: File; grupo: "geral" | "cbo" | "provas" | "provasExtratoFgts" | "holeritesConvenioMedico" };
 
 async function getExportImageFiles(blocks: PreviewBlock[], pendingFilesByBlock: Partial<Record<BlockId, ExportImageFile[]>>) {
   const filesByBlock: Partial<Record<BlockId, ExportImageFile[]>> = {};
@@ -1067,6 +1082,7 @@ export function RTComposerPage() {
   const [pendingDanoMoralAtrasoFiles, setPendingDanoMoralAtrasoFiles] = useState<File[]>([]);
   const [pendingTrctMediaHorasFiles, setPendingTrctMediaHorasFiles] = useState<File[]>([]);
   const [pendingExtratoFgtsFiles, setPendingExtratoFgtsFiles] = useState<File[]>([]);
+  const [pendingConvenioMedicoFiles, setPendingConvenioMedicoFiles] = useState<File[]>([]);
   const [siteEncerramentoInput, setSiteEncerramentoInput] = useState("");
   const [sitesEncerramentoAtividades, setSitesEncerramentoAtividades] = useState<string[]>([]);
   const [savedMessage, setSavedMessage] = useState("");
@@ -1144,6 +1160,10 @@ export function RTComposerPage() {
       () => pendingExtratoFgtsFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
       [pendingExtratoFgtsFiles]
   );
+  const pendingConvenioMedicoPreviews = useMemo(
+      () => pendingConvenioMedicoFiles.map((file) => ({ file, key: `${file.name}-${file.size}-${file.lastModified}`, url: URL.createObjectURL(file) })),
+      [pendingConvenioMedicoFiles]
+  );
 
   useEffect(() => () => {
     pendingCtpsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
@@ -1157,7 +1177,8 @@ export function RTComposerPage() {
     pendingDanoMoralAtrasoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingTrctMediaHorasPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
     pendingExtratoFgtsPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
-  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews, pendingDanoMoralAtrasoPreviews, pendingTrctMediaHorasPreviews, pendingExtratoFgtsPreviews]);
+    pendingConvenioMedicoPreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+  }, [pendingCtpsPreviews, pendingResponsabilidadePreviews, pendingContratoAdministrativoPreviews, pendingDiferencasSalariaisPreviews, pendingDispensaDiscriminatoriaPreviews, pendingDesvioCboPreviews, pendingDesvioProvasPreviews, pendingIntegracaoAluguelPreviews, pendingDanoMoralAtrasoPreviews, pendingTrctMediaHorasPreviews, pendingExtratoFgtsPreviews, pendingConvenioMedicoPreviews]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1184,6 +1205,7 @@ export function RTComposerPage() {
         setPendingDanoMoralAtrasoFiles([]);
         setPendingTrctMediaHorasFiles([]);
         setPendingExtratoFgtsFiles([]);
+        setPendingConvenioMedicoFiles([]);
         setSiteEncerramentoInput("");
         setSitesEncerramentoAtividades([]);
         setSavedMessage("");
@@ -1396,6 +1418,19 @@ export function RTComposerPage() {
         tamanhoBytes: file.size,
         url,
         dataUpload: ""
+      })) : []),
+      ...(id === "convenio_medico" ? pendingConvenioMedicoPreviews.map(({ file, url }, index) => ({
+        id: -(index + 1),
+        processoId: processoId ? Number(processoId) : 0,
+        blocoId: "convenio_medico",
+        grupo: "holeritesConvenioMedico" as const,
+        ordem: (apiPreviews[id]?.anexos.length || 0) + index,
+        afterParagraph: 2,
+        nomeOriginal: file.name,
+        contentType: file.type,
+        tamanhoBytes: file.size,
+        url,
+        dataUpload: ""
       })) : [])
     ];
     return attachments;
@@ -1512,7 +1547,7 @@ export function RTComposerPage() {
     );
   }
 
-  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial" | "dano_moral_atraso_salarial" | "verbas_rescisorias_media_horas_extras_nao_paga" | "ausencia_depositos_fgts";
+  type AttachmentBlockId = "baixa_ctps_tutela" | "responsabilidade_solidaria_grupo_economico" | "responsabilidade_subsidiaria_contrato_administrativo" | "diferencas_salariais_piso_convencional" | "dispensa_discriminatoria_reintegracao_ou_pagamento" | "desvio_funcao_atividade_efetivamente_exercida" | "integracao_aluguel_veiculo_particular_natureza_salarial" | "dano_moral_atraso_salarial" | "verbas_rescisorias_media_horas_extras_nao_paga" | "ausencia_depositos_fgts" | "convenio_medico";
 
   async function handleAttachmentUpload(event: ChangeEvent<HTMLInputElement>, blockId: AttachmentBlockId, grupo = "geral") {
     const files = Array.from(event.target.files || []);
@@ -1520,6 +1555,10 @@ export function RTComposerPage() {
     if (!files.length) return;
     if (blockId === "ausencia_depositos_fgts") {
       setPendingExtratoFgtsFiles((current) => [...current, ...files]);
+      return;
+    }
+    if (blockId === "convenio_medico") {
+      setPendingConvenioMedicoFiles((current) => [...current, ...files]);
       return;
     }
     if (!processoId) {
@@ -1654,6 +1693,32 @@ export function RTComposerPage() {
     });
   }
 
+  function handlePendingConvenioMedicoRemove(key: string) {
+    setPendingConvenioMedicoFiles((current) => current.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== key));
+  }
+
+  function movePendingConvenioMedico(index: number, direction: -1 | 1) {
+    setPendingConvenioMedicoFiles((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
+  function movePersistedConvenioMedico(index: number, direction: -1 | 1) {
+    setApiPreviews((current) => {
+      const preview = current.convenio_medico;
+      if (!preview) return current;
+      const target = index + direction;
+      if (target < 0 || target >= preview.anexos.length) return current;
+      const anexos = [...preview.anexos];
+      [anexos[index], anexos[target]] = [anexos[target], anexos[index]];
+      return { ...current, convenio_medico: { ...preview, anexos: anexos.map((anexo, ordem) => ({ ...anexo, ordem })) } };
+    });
+  }
+
   function clearDraft() {
     setValues(initialState);
     setSelectedBlocks(defaultBlocks);
@@ -1671,6 +1736,7 @@ export function RTComposerPage() {
     setPendingDanoMoralAtrasoFiles([]);
     setPendingTrctMediaHorasFiles([]);
     setPendingExtratoFgtsFiles([]);
+    setPendingConvenioMedicoFiles([]);
     setSavedMessage("");
   }
 
@@ -1838,6 +1904,11 @@ export function RTComposerPage() {
         await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingExtratoFgtsFiles, "ausencia_depositos_fgts", "provasExtratoFgts");
         setPendingExtratoFgtsFiles([]);
       }
+      if (pendingConvenioMedicoFiles.length > 0) {
+        setUploadingAttachments(true);
+        await api.uploadProcessoAnexos(session.token, savedProcessoId, pendingConvenioMedicoFiles, "convenio_medico", "holeritesConvenioMedico");
+        setPendingConvenioMedicoFiles([]);
+      }
       setUploadingAttachments(false);
 
       window.setTimeout(() => {
@@ -1895,7 +1966,8 @@ export function RTComposerPage() {
         integracao_aluguel_veiculo_particular_natureza_salarial: pendingIntegracaoAluguelFiles.map((file) => ({ file, grupo: "geral" })),
         dano_moral_atraso_salarial: pendingDanoMoralAtrasoFiles.map((file) => ({ file, grupo: "geral" })),
         verbas_rescisorias_media_horas_extras_nao_paga: pendingTrctMediaHorasFiles.map((file) => ({ file, grupo: "geral" })),
-        ausencia_depositos_fgts: pendingExtratoFgtsFiles.map((file) => ({ file, grupo: "provasExtratoFgts" }))
+        ausencia_depositos_fgts: pendingExtratoFgtsFiles.map((file) => ({ file, grupo: "provasExtratoFgts" })),
+        convenio_medico: pendingConvenioMedicoFiles.map((file) => ({ file, grupo: "holeritesConvenioMedico" }))
       });
       await exportToDocx(
           blocksForExport,
@@ -2436,6 +2508,50 @@ export function RTComposerPage() {
                                       ) : null}
                                     </div>
                                 ) : null}
+                                {block.id === "convenio_medico" && selectedBlocks.includes(block.id) ? (
+                                    <div className="block-attachment-picker">
+                                      <label className="attachment-upload-button">
+                                        <span>Holerites comprobatórios</span>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,application/pdf"
+                                            multiple
+                                            onChange={(event) => handleAttachmentUpload(event, "convenio_medico", "holeritesConvenioMedico")}
+                                        />
+                                      </label>
+                                      <small>Os holerites permanecem neste rascunho e serão enviados somente ao salvar a RT.</small>
+                                      {(apiPreviews.convenio_medico?.anexos.length || pendingConvenioMedicoPreviews.length) ? (
+                                          <div className="ordered-attachment-list">
+                                            {(apiPreviews.convenio_medico?.anexos || []).map((anexo, index, anexos) => (
+                                                <div className="ordered-attachment-item" key={anexo.id}>
+                                                  {anexo.contentType === "application/pdf"
+                                                    ? <object data={anexo.url} type="application/pdf" aria-label={anexo.nomeOriginal}><a href={anexo.url}>{anexo.nomeOriginal}</a></object>
+                                                    : <img src={anexo.url} alt={anexo.nomeOriginal} />}
+                                                  <span title={anexo.nomeOriginal}>{anexo.nomeOriginal}</span>
+                                                  <div className="ordered-attachment-actions">
+                                                    <button type="button" disabled={index === 0} onClick={() => movePersistedConvenioMedico(index, -1)} aria-label={`Mover ${anexo.nomeOriginal} para cima`}>↑</button>
+                                                    <button type="button" disabled={index === anexos.length - 1} onClick={() => movePersistedConvenioMedico(index, 1)} aria-label={`Mover ${anexo.nomeOriginal} para baixo`}>↓</button>
+                                                    <button type="button" onClick={() => handleAttachmentRemove(anexo.id, "convenio_medico")}>Remover</button>
+                                                  </div>
+                                                </div>
+                                            ))}
+                                            {pendingConvenioMedicoPreviews.map(({ file, key, url }, index, arquivos) => (
+                                                <div className="ordered-attachment-item" key={key}>
+                                                  {file.type === "application/pdf"
+                                                    ? <object data={url} type="application/pdf" aria-label={file.name}><span>{file.name}</span></object>
+                                                    : <img src={url} alt={file.name} />}
+                                                  <span title={file.name}>{file.name}</span>
+                                                  <div className="ordered-attachment-actions">
+                                                    <button type="button" disabled={index === 0} onClick={() => movePendingConvenioMedico(index, -1)} aria-label={`Mover ${file.name} para cima`}>↑</button>
+                                                    <button type="button" disabled={index === arquivos.length - 1} onClick={() => movePendingConvenioMedico(index, 1)} aria-label={`Mover ${file.name} para baixo`}>↓</button>
+                                                    <button type="button" onClick={() => handlePendingConvenioMedicoRemove(key)}>Remover</button>
+                                                  </div>
+                                                </div>
+                                            ))}
+                                          </div>
+                                      ) : null}
+                                    </div>
+                                ) : null}
                                 <div className="block-accordion-content">
                                   {block.id === "rescisao_indireta_tutela_antecipada_verbas_incontroversas" && selectedBlocks.includes(block.id) ? (
                                       <div className="block-variable-fields">
@@ -2558,6 +2674,9 @@ export function RTComposerPage() {
                                         textoClausulaValeAlimentacao: "Conteúdo da cláusula",
                                         clausulaCctSeguroVida: "Cláusula da CCT",
                                         identificacaoCctSeguroVida: "Identificação da CCT",
+                                        clausulaCctConvenioMedico: "Cláusula da CCT",
+                                        identificacaoCctConvenioMedico: "Identificação da CCT",
+                                        textoClausulaConvenioMedico: "Conteúdo da cláusula",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2597,7 +2716,7 @@ export function RTComposerPage() {
                                         condicaoDiscriminacao: "Condição da parte autora que motivou a dispensa",
                                         comoFicouProvado: "Como ficou comprovado"
                                       };
-                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao"].includes(field);
+                                      const multiline = ["descricaoAcidente", "redacaoClausula", "informacoesComplementares", "informacoesComplementaresCtps", "informacoesComplementaresContratoAdministrativo", "descricaoAtividadePrincipal", "motivoSubordinacao", "descricaoDanoMoralCtps", "justificativaRescisaoIndireta", "descricaoFaltaGrave", "motivoJustaCausa", "descricaoJornadaMedia", "descricaoAusenciaControleJornada", "descricaoNulidadeBancoHoras", "horarioTrabalhoNoturno", "descricaoChamadosSobreaviso", "descricaoSupressaoIntervaloInterjornada", "descricaoAmbienteTrabalhoNocivo", "textoClausulaDiariasViagem", "textoClausulaValeAlimentacao", "textoClausulaConvenioMedico"].includes(field);
                                       const isDate = ["dataAdmissao", "dataDemissao", "dataContratacao", "dataExtincao", "dataInicioVinculo", "dataFimVinculo", "dataAnotacaoCtps", "dataInicioPrestacaoServicos", "dataAssinaturaCarteira", "dataInicioAcumuloFuncao", "dataInicioTransferencia", "dataFimTransferencia"].includes(field);
                                       const accumulationLabels: Partial<Record<keyof ComposerState, string>> = {
                                         funcaoContrato: "Função contratada",
@@ -2667,7 +2786,8 @@ export function RTComposerPage() {
                           "integracao_aluguel_veiculo_particular_natureza_salarial",
                           "dano_moral_atraso_salarial",
                           "verbas_rescisorias_media_horas_extras_nao_paga",
-                          "ausencia_depositos_fgts"
+                          "ausencia_depositos_fgts",
+                          "convenio_medico"
                         ].includes(block.id), session?.token || "", block.id, block.paragrafosRecuados)}
                       </section>
                   ))}

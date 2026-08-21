@@ -113,7 +113,7 @@ export interface ProcessoAnexoResponse {
   id: number;
   processoId: number;
   blocoId: string;
-  grupo: "geral" | "cbo" | "provas" | "provasExtratoFgts";
+  grupo: "geral" | "cbo" | "provas" | "provasExtratoFgts" | "holeritesConvenioMedico";
   ordem: number;
   afterParagraph: number;
   nomeOriginal: string;
