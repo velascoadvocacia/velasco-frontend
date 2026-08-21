@@ -672,6 +672,18 @@ textarea {
   height: 7rem;
 }
 
+.rt-preview-attachments.rt-preview-fixed-images-wide {
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.rt-preview-attachments.rt-preview-fixed-images-wide img {
+  width: min(100%, 42rem);
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
 /* ─── Entity cards ───────────────────────────────────── */
 
 .entity-picker,

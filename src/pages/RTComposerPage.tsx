@@ -64,6 +64,7 @@ type BlockId =
     | "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada"
     | "jornada_trabalho_intervalo_intrajornada"
     | "jornada_trabalho_inconstitucionalidade_tempo_espera"
+    | "jornada_trabalho_dano_moral_jornada_extenuante"
     | "baixa_ctps_tutela"
     | "rescisao_indireta_tutela_antecipada_verbas_incontroversas"
     | "tutela_urgencia_natureza_cautelar"
@@ -108,7 +109,8 @@ const blockRelationships: Partial<Record<BlockId, BlockRelationship>> = {
       "jornada_trabalho_intervalo_interjornada",
       "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada",
       "jornada_trabalho_intervalo_intrajornada",
-      "jornada_trabalho_inconstitucionalidade_tempo_espera"
+      "jornada_trabalho_inconstitucionalidade_tempo_espera",
+      "jornada_trabalho_dano_moral_jornada_extenuante"
     ]
   }
 };
@@ -164,7 +166,8 @@ const BLOCKS_FROM_API: BlockId[] = [
   "jornada_trabalho_intervalo_interjornada",
   "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada",
   "jornada_trabalho_intervalo_intrajornada",
-  "jornada_trabalho_inconstitucionalidade_tempo_espera"
+  "jornada_trabalho_inconstitucionalidade_tempo_espera",
+  "jornada_trabalho_dano_moral_jornada_extenuante"
 ];
 
 const severanceChildBlockIds: BlockId[] = [
@@ -221,6 +224,7 @@ interface ComposerState {
   descricaoChamadosSobreaviso: string;
   descricaoSupressaoIntervaloInterjornada: string;
   horasDiariasIntervaloIntrajornada: string;
+  mediaHorasJornadaDiaria: string;
   remuneracao: string;
   motivoExtincao: "" | (typeof contractExtinctionOptions)[number]["value"];
   dataExtincao: string;
@@ -449,7 +453,10 @@ function renderBlockContent(content: string, anexos: ProcessoAnexoResponse[], im
         </div>
       ) : null}
       {imagensFixas.filter((imagem) => imagem.afterParagraph === index + 1).map((imagem) => (
-        <div className="rt-preview-attachments" key={`${imagem.url}-${imagem.afterParagraph}`}>
+        <div
+            className={`rt-preview-attachments${blockId === "jornada_trabalho_dano_moral_jornada_extenuante" ? " rt-preview-fixed-images-wide" : ""}`}
+            key={`${imagem.url}-${imagem.afterParagraph}`}
+        >
           <FixedPreviewImage image={imagem} token={token} />
         </div>
       ))}
@@ -496,6 +503,7 @@ const initialState: ComposerState = {
   descricaoChamadosSobreaviso: "",
   descricaoSupressaoIntervaloInterjornada: "",
   horasDiariasIntervaloIntrajornada: "",
+  mediaHorasJornadaDiaria: "",
   remuneracao: "",
   motivoExtincao: "",
   dataExtincao: "",
@@ -574,6 +582,7 @@ const blockDefinitions: BlockDefinition[] = [
   { id: "jornada_trabalho_inconstitucionalidade_intervalo_intrajornada", title: "i. Inconstitucionalidade da alteração promovida no § 4º do art. 71 da CLT pela Lei n.º 13.467/2017 (natureza indenizatória do intervalo intrajornada)", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_intervalo_intrajornada", title: "j. Intervalo intrajornada (nulidade dos intervalos superiores a 2h e fracionados – Tempo à disposição)", section: "Jornada de trabalho" },
   { id: "jornada_trabalho_inconstitucionalidade_tempo_espera", title: "k. Inconstitucionalidade do tempo de espera", section: "Jornada de trabalho" },
+  { id: "jornada_trabalho_dano_moral_jornada_extenuante", title: "l. Dano moral pelo cumprimento de jornada extenuante", section: "Jornada de trabalho" },
 ];
 
 const defaultBlocks: BlockId[] = [
@@ -662,7 +671,8 @@ const variableFieldsByBlock: Partial<Record<BlockId, (keyof ComposerState)[]>> =
   jornada_trabalho_adicional_noturno: ["horarioTrabalhoNoturno"],
   jornada_trabalho_sobreaviso: ["descricaoChamadosSobreaviso"],
   jornada_trabalho_intervalo_interjornada: ["descricaoSupressaoIntervaloInterjornada"],
-  jornada_trabalho_intervalo_intrajornada: ["horasDiariasIntervaloIntrajornada"]
+  jornada_trabalho_intervalo_intrajornada: ["horasDiariasIntervaloIntrajornada"],
+  jornada_trabalho_dano_moral_jornada_extenuante: ["mediaHorasJornadaDiaria"]
 };
 
 function blockTitle(block: BlockDefinition, values: ComposerState) {
@@ -800,6 +810,7 @@ function mapProcessoToComposerValues(processo: Processo): ComposerState {
     descricaoChamadosSobreaviso: String(processo.dadosVariaveis?.jornada_trabalho_sobreaviso?.descricaoChamadosSobreaviso ?? ""),
     descricaoSupressaoIntervaloInterjornada: String(processo.dadosVariaveis?.jornada_trabalho_intervalo_interjornada?.descricaoSupressaoIntervaloInterjornada ?? ""),
     horasDiariasIntervaloIntrajornada: String(processo.dadosVariaveis?.jornada_trabalho_intervalo_intrajornada?.horasDiariasIntervaloIntrajornada ?? ""),
+    mediaHorasJornadaDiaria: String(processo.dadosVariaveis?.jornada_trabalho_dano_moral_jornada_extenuante?.mediaHorasJornadaDiaria ?? ""),
     dataContratacao: contrato?.dataAdmissao ?? String(processo.dadosVariaveis?.adicional_transferencia?.dataContratacao ?? ""),
     dataAdmissao: contrato?.dataAdmissao ?? "",
     dataDemissao: contrato?.dataDemissao ?? "",
@@ -2344,6 +2355,7 @@ export function RTComposerPage() {
                                         descricaoChamadosSobreaviso: "Descrição dos chamados em sobreaviso",
                                         descricaoSupressaoIntervaloInterjornada: "Descrição da supressão do intervalo interjornada",
                                         horasDiariasIntervaloIntrajornada: "Total de horas diárias de intervalo intrajornada",
+                                        mediaHorasJornadaDiaria: "Média de horas trabalhadas por dia",
                                         dataDemissao: "Data de demissão",
                                         descricaoAcidente: "Descrição do acidente",
                                         cctPeriodo: "Período da CCT",
@@ -2416,7 +2428,7 @@ export function RTComposerPage() {
                                                     step={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0.01" : undefined}
                                                     min={field === "remuneracao" || isMoney || isLatereMoney || isVehicleRentalMoney ? "0" : undefined}
                                                     value={String(values[field] ?? "")}
-                                                    placeholder={field === "horasDiariasIntervaloIntrajornada" ? "Ex.: 3 horas e 30 minutos" : undefined}
+                                                    placeholder={field === "horasDiariasIntervaloIntrajornada" ? "Ex.: 3 horas e 30 minutos" : field === "mediaHorasJornadaDiaria" ? "Ex.: 12 horas" : undefined}
                                                     onChange={(event) => handleChange(field, event.target.value)}
                                                 />
                                             )}
